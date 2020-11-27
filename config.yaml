@@ -9,7 +9,7 @@ mga_slack: 0.2
 mcmc_variables: 'all' # 'all' selects all 
 
 sampler:
-  chains: 4
+  chains: 2
   samples: 501 # has to be a multiple of 101
   eps: 500 # was 0.1  
 

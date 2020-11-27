@@ -53,6 +53,7 @@ rule calc_sigma:
         #sigma = lambda w: 'inter_results/sigma_s{sample}.csv'.format(sample=int(w.sample)-100)
     output:
         sigma = 'inter_results/sigma_s{sample}.csv'
+    threads: 4
     script: 
         'scripts/calc_sigma.py'
 
@@ -62,5 +63,6 @@ rule data_postprocess:
         expand("inter_results/network_c{chain}_s{sample}.nc",chain=chains,sample=config['sampler']['samples'])
     output:
         'results/result.xlsx'
+    threads: 4
     script:
         'scripts/data_postprocessing.py'
