@@ -1,0 +1,148 @@
+AL0 0 solar
+AL0 0 offwind-ac,AL0 0 onwind
+AL0 0 H2
+AL0 0 battery
+AT0 0 solar
+AT0 0 onwind
+AT0 0 H2
+AT0 0 battery
+BA0 0 solar
+BA0 0 onwind
+BA0 0 H2
+BA0 0 battery
+BE0 0 solar
+BE0 0 offwind-ac,BE0 0 offwind-dc,BE0 0 onwind
+BE0 0 H2
+BE0 0 battery
+BG0 0 solar
+BG0 0 offwind-ac,BG0 0 offwind-dc,BG0 0 onwind
+BG0 0 H2
+BG0 0 battery
+CH0 0 solar
+CH0 0 onwind
+CH0 0 H2
+CH0 0 battery
+CZ0 0 solar
+CZ0 0 onwind
+CZ0 0 H2
+CZ0 0 battery
+DE0 0 solar
+DE0 0 offwind-ac,DE0 0 offwind-dc,DE0 0 onwind
+DE0 0 H2
+DE0 0 battery
+DK0 0 solar
+DK0 0 offwind-ac,DK0 0 offwind-dc,DK0 0 onwind
+DK0 0 H2
+DK0 0 battery
+DK3 0 solar
+DK3 0 offwind-ac,DK3 0 offwind-dc,DK3 0 onwind
+DK3 0 H2
+DK3 0 battery
+EE6 0 solar
+EE6 0 offwind-ac,EE6 0 offwind-dc,EE6 0 onwind
+EE6 0 H2
+EE6 0 battery
+ES0 0 solar
+ES0 0 offwind-ac,ES0 0 offwind-dc,ES0 0 onwind
+ES0 0 H2
+ES0 0 battery
+ES2 0 solar
+ES2 0 offwind-ac,ES2 0 offwind-dc,ES2 0 onwind
+ES2 0 H2
+ES2 0 battery
+FI3 0 solar
+FI3 0 offwind-ac,FI3 0 offwind-dc,FI3 0 onwind
+FI3 0 H2
+FI3 0 battery
+FR0 0 solar
+FR0 0 offwind-ac,FR0 0 offwind-dc,FR0 0 onwind
+FR0 0 H2
+FR0 0 battery
+GB4 0 solar
+GB4 0 offwind-ac,GB4 0 offwind-dc,GB4 0 onwind
+GB4 0 H2
+GB4 0 battery
+GB5 0 solar
+GB5 0 offwind-ac,GB5 0 offwind-dc,GB5 0 onwind
+GB5 0 H2
+GB5 0 battery
+GR0 0 solar
+GR0 0 offwind-ac,GR0 0 offwind-dc,GR0 0 onwind
+GR0 0 H2
+GR0 0 battery
+HR0 0 solar
+HR0 0 offwind-ac,HR0 0 offwind-dc,HR0 0 onwind
+HR0 0 H2
+HR0 0 battery
+HU0 0 solar
+HU0 0 onwind
+HU0 0 H2
+HU0 0 battery
+IE4 0 solar
+IE4 0 offwind-ac,IE4 0 offwind-dc,IE4 0 onwind
+IE4 0 H2
+IE4 0 battery
+IT0 0 solar
+IT0 0 offwind-ac,IT0 0 offwind-dc,IT0 0 onwind
+IT0 0 H2
+IT0 0 battery
+IT1 0 solar
+IT1 0 offwind-ac,IT1 0 onwind
+IT1 0 H2
+IT1 0 battery
+LT6 0 solar
+LT6 0 offwind-ac,LT6 0 offwind-dc,LT6 0 onwind
+LT6 0 H2
+LT6 0 battery
+LU0 0 solar
+LU0 0 onwind
+LU0 0 H2
+LU0 0 battery
+LV6 0 solar
+LV6 0 offwind-ac,LV6 0 offwind-dc,LV6 0 onwind
+LV6 0 H2
+LV6 0 battery
+ME0 0 solar
+ME0 0 offwind-ac,ME0 0 onwind
+ME0 0 H2
+ME0 0 battery
+MK0 0 solar
+MK0 0 onwind
+MK0 0 H2
+MK0 0 battery
+NL0 0 solar
+NL0 0 offwind-ac,NL0 0 offwind-dc,NL0 0 onwind
+NL0 0 H2
+NL0 0 battery
+NO3 0 solar
+NO3 0 offwind-ac,NO3 0 offwind-dc,NO3 0 onwind
+NO3 0 H2
+NO3 0 battery
+PL0 0 solar
+PL0 0 offwind-ac,PL0 0 offwind-dc,PL0 0 onwind
+PL0 0 H2
+PL0 0 battery
+PT0 0 solar
+PT0 0 offwind-ac,PT0 0 onwind
+PT0 0 H2
+PT0 0 battery
+RO0 0 solar
+RO0 0 offwind-ac,RO0 0 offwind-dc,RO0 0 onwind
+RO0 0 H2
+RO0 0 battery
+RS0 0 solar
+RS0 0 onwind
+RS0 0 H2
+RS0 0 battery
+SE3 0 solar
+SE3 0 offwind-ac,SE3 0 offwind-dc,SE3 0 onwind
+SE3 0 H2
+SE3 0 battery
+SI0 0 solar
+SI0 0 offwind-ac,SI0 0 onwind
+SI0 0 H2
+SI0 0 battery
+SK0 0 solar
+SK0 0 onwind
+SK0 0 H2
+SK0 0 battery
