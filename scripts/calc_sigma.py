@@ -5,6 +5,9 @@ import csv
 import numpy as np 
 import re 
 from _helpers import configure_logging
+import multiprocessing as mp
+import queue # imported for using queue.Empty exception
+import time 
 #%%
 
 def write_csv(path,item):
@@ -30,7 +33,7 @@ def increment_sample(path,incr=1):
     path_out = os.path.join(folder, file_new )
     return path_out
 
-def get_theta(netwrok,mcmc_variables):
+def get_theta(network,mcmc_variables):
     theta = []
     for var in mcmc_variables:
         if network.generators.index.isin(var).any():
@@ -40,13 +43,32 @@ def get_theta(netwrok,mcmc_variables):
 
     return theta
 
+def worker(q,thetas,mcmc_variables,q_proc_done):
+    proc_name = mp.current_process().name
+    while True:
+        try:
+            #try to get task from the queue. get_nowait() function will 
+            #raise queue.Empty exception if the queue is empty. 
+            #queue(False) function would do the same task also.
+            file = q.get(False)
+        except queue.Empty:
+            print('no more jobs - {}'.format(proc_name))
+            q_proc_done.put(proc_name)
+            break
+        else:
+            if file[:7] == 'network':
+                network = pypsa.Network('inter_results/'+file)
+                theta = get_theta(network,mcmc_variables)
+                thetas.put(theta)
+                del(network)
 
 #%%
 if __name__=='__main__':
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
-            snakemake = mock_snakemake('calc_sigma',sample=201)
+            snakemake = mock_snakemake('calc_sigma',sample=101)
+            os.chdir('..')
         except :
             os.chdir(os.getcwd()+'/scripts')
             snakemake = mock_snakemake('calc_sigma',sample=101)
@@ -59,17 +81,37 @@ if __name__=='__main__':
     mcmc_variables = read_csv(network.mcmc_variables)
     eps = snakemake.config['sampler']['eps']
 
+    man = mp.Manager()
+
+
+    thetas_q = man.Queue()
+    # Itterate over all files in the inter_results directory 
+    # If the file is a network file, it is loaded and the theta value is extracted and stored to the thetas_q list
+ 
+    dir_lst = os.listdir('inter_results/')
+    q = man.Queue()
+    q_proc_done = man.Queue()
+    for d in dir_lst:
+        q.put(d)
+
+    processes = []
+    for i in range(snakemake.threads):
+        p = mp.Process(target=worker,args=(q,thetas_q,mcmc_variables,q_proc_done))
+        p.start()
+        processes.append(p)
+    
+    while q_proc_done.qsize()<snakemake.threads:
+        time.sleep(1)
+
+
+    for p in processes:
+        p.kill()
+        p.join()
 
     thetas = []
-    # Itterate over all files in the inter_results directory 
-    # If the file is a network file, it is loaded and the theta value is extracted and stored to the thetas list
-    dir_lst = os.listdir('inter_results/')
-    for file in dir_lst:
-        if file[:7] == 'network':
-            network = pypsa.Network('inter_results/'+file)
-            theta = get_theta(network,mcmc_variables)
-            thetas.append(theta)
-            del(network)
+    while thetas_q.qsize()>0:
+        thetas.append(thetas_q.get(30))
+
     thetas = np.array(thetas)
 
     # Calculate sigma from the data. 

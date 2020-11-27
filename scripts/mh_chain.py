@@ -66,7 +66,28 @@ def solve_network(network,variables,theta):
         network.objective = np.inf
     return network
 
-def sample(network):
+
+def calc_pr(network,cost):
+    # Calculate probability estimator, based on solution cost
+    cost_0 = network.objective_optimum 
+    mga_constraint_fullfilment = (cost-cost_0)/cost_0/network.mga_slack
+    Pr = lambda c :(-2/(1+np.exp(-10*c+10))+2)
+    pr_i = Pr(mga_constraint_fullfilment)
+    return pr_i
+
+def calc_capital_cost(network,mcmc_variables,theta_proposed):
+    # Calculate the minimum capital cost of producing the proposed solution
+    cost = 0
+    for i in range(len(theta_proposed)):
+        try :
+            cost += min(network.generators.capital_cost.loc[mcmc_variables[i]] * theta_proposed[i])
+        except : 
+            cost += min(network.storage_units.capital_cost.loc[mcmc_variables[i]] * theta_proposed[i])
+    # add line cost
+    cost += sum(network.links.p_nom_min * network.links.capital_cost)
+    return cost
+
+def sample(network,alpha):
 
     mcmc_variables = read_csv(network.mcmc_variables)
     theta = get_theta(network,mcmc_variables)
@@ -76,20 +97,22 @@ def sample(network):
     # Take step
     theta_proposed=np.random.multivariate_normal(theta,sigma)
     theta_proposed[theta_proposed<0]=0
-    # Evaluate network at new point 
-    network = solve_network(network,mcmc_variables,theta_proposed)
-    
-    # Evaluate quality of sample point 
-    cost_i = network.objective
-    cost_0 = network.objective_optimum 
 
-    mga_constraint_fullfilment = (cost_i-cost_0)/cost_0/network.mga_slack
+    # Evaluate capital costs of the proposed solution (theta_porposed) and use this as early rejection criteria
+    cost_early = calc_capital_cost(network,mcmc_variables,theta_proposed)
+    pr_early = calc_pr(network,cost_early)
 
-    Pr = lambda c :(-2/(1+np.exp(-10*c+10))+2)
-
-    pr_i = Pr(mga_constraint_fullfilment)
+    if pr_early>alpha: # Sample not rejected based on early evaluation
+        # Evaluate network at new point 
+        network = solve_network(network,mcmc_variables,theta_proposed)
+        cost_i = network.objective 
+        pr_i = calc_pr(network,cost_i)
+    else : # Sample rejected based on early evaluation 
+        logging.info('Early rejection')
+        pr_i = pr_early
 
     return network, pr_i
+
 
 #%%
 if __name__=='__main__':
@@ -115,10 +138,11 @@ if __name__=='__main__':
     while n_sample <= int(snakemake.wildcards.sample) :
     
         network = pypsa.Network(inp)
+        alpha = np.random.rand()
         # Get the likelihood estimate pr_i from the network 
-        network, pr_i = sample(network)
+        network, pr_i = sample(network,alpha)
         # Accept or reject the sample 
-        if np.random.rand()<pr_i: # Sample accepted, save solved network
+        if alpha<pr_i: # Sample accepted, save solved network
             logging.info('sample accepted')
             network.sample = n_sample
             network.export_to_netcdf(out)
@@ -135,6 +159,3 @@ if __name__=='__main__':
 # %%
 
 
-
-
-# %%

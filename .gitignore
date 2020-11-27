@@ -1,6 +1,5 @@
-# ignore logs 
-*.log
 
+*.log
 .vscode/
 
 # Ignore intermediate results 
