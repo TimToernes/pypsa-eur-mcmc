@@ -1,0 +1,7 @@
+# ignore logs 
+*.log
+
+.vscode/
+
+# Ignore intermediate results 
+inter_results/*
