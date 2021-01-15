@@ -1,13 +1,14 @@
-#%%
+#%% imports
 import pypsa
 import logging
 import pandas as pd
-from _helpers import configure_logging
 import sys
-import time 
+sys.path.append('./scripts/')
+from _helpers import configure_logging
+import time
 import os
 import csv
-import numpy as np 
+import numpy as np
 
 #%%
 
@@ -39,8 +40,10 @@ def calc_variables(network):
         variables.extend([list(value) for key,value in groups.items()])
     return variables
 
+
 #%%
-if __name__=='__main__':
+if __name__ == '__main__':
+
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
