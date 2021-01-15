@@ -378,6 +378,8 @@ def figure3(ds,scenario_idx,show_max_min_points=False):
 
 #%%
 
+ds.interrior_points = ds.df_sum_var[ds.variables].values
+
 fig3 = figure3(copy.deepcopy(ds),case_scenarios)
 #fig3.write_image('figure3.pdf')
 
