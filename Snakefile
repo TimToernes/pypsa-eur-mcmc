@@ -8,7 +8,8 @@ chains = range(config['sampler']['chains'])
 
 rule all:
     input:
-        expand("inter_results/network_c{chain}_s{sample}.nc",chain=chains,sample=config['sampler']['samples'])
+        expand("inter_results/network_c{chain}_s{sample}.nc",chain=chains,sample=config['sampler']['samples']),
+        "inter_results/sigma_s{sample}.csv".format(sample=config['sampler']['samples'])
 
 
 
@@ -25,8 +26,8 @@ rule initialize_networks:
     
 def chain_input(w):
     out = []
-    out.append('inter_results/network_c{chain}_s{sample}.nc'.format(chain=w.chain,sample=int(w.sample)-100))
-    out.append('inter_results/sigma_s{sample}.csv'.format(sample=int(w.sample)-100))
+    out.append('inter_results/network_c{chain}_s{sample}.nc'.format(chain=w.chain,sample=int(w.sample)-config['sampler']['batch']))
+    out.append('inter_results/sigma_s{sample}.csv'.format(sample=int(w.sample)-config['sampler']['batch']))
     return out 
 
 rule run_single_chain:
@@ -52,7 +53,8 @@ rule calc_sigma:
         sigma_input
         #sigma = lambda w: 'inter_results/sigma_s{sample}.csv'.format(sample=int(w.sample)-100)
     output:
-        sigma = 'inter_results/sigma_s{sample}.csv'
+        sigma = 'inter_results/sigma_s{sample}.csv',
+        #theta = 'inter_results/theta_s{sample}.csv'
     threads: 4
     script: 
         'scripts/calc_sigma.py'

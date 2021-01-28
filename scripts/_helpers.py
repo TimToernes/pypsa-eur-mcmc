@@ -98,30 +98,30 @@ def load_network_for_plots(fn, tech_costs, config, combine_hydro_ps=True):
     import pypsa
     from add_electricity import update_transmission_costs, load_costs
 
-    n = pypsa.Network(fn)
+    network = pypsa.Network(fn)
 
-    n.loads["carrier"] = n.loads.bus.map(n.buses.carrier) + " load"
-    n.stores["carrier"] = n.stores.bus.map(n.buses.carrier)
+    network.loads["carrier"] = network.loads.bus.map(network.buses.carrier) + " load"
+    network.stores["carrier"] = network.stores.bus.map(network.buses.carrier)
 
-    n.links["carrier"] = (n.links.bus0.map(n.buses.carrier) + "-" + n.links.bus1.map(n.buses.carrier))
-    n.lines["carrier"] = "AC line"
-    n.transformers["carrier"] = "AC transformer"
+    network.links["carrier"] = (network.links.bus0.map(network.buses.carrier) + "-" + network.links.bus1.map(network.buses.carrier))
+    network.lines["carrier"] = "AC line"
+    network.transformers["carrier"] = "AC transformer"
 
-    n.lines['s_nom'] = n.lines['s_nom_min']
-    n.links['p_nom'] = n.links['p_nom_min']
+    network.lines['s_nom'] = network.lines['s_nom_min']
+    network.links['p_nom'] = network.links['p_nom_min']
 
     if combine_hydro_ps:
-        n.storage_units.loc[n.storage_units.carrier.isin({'PHS', 'hydro'}), 'carrier'] = 'hydro+PHS'
+        network.storage_units.loc[network.storage_units.carrier.isin({'PHS', 'hydro'}), 'carrier'] = 'hydro+PHS'
 
     # #if the carrier was not set on the heat storage units
     # bus_carrier = n.storage_units.bus.map(n.buses.carrier)
     # n.storage_units.loc[bus_carrier == "heat","carrier"] = "water tanks"
 
-    Nyears = n.snapshot_weightings.sum()/8760.
+    Nyears = network.snapshot_weightings.sum()/8760.
     costs = load_costs(Nyears, tech_costs, config['costs'], config['electricity'])
-    update_transmission_costs(n, costs)
+    update_transmission_costs(network, costs)
 
-    return n
+    return network
 
 def aggregate_p_nom(n):
     return pd.concat([
@@ -251,5 +251,5 @@ def mock_snakemake(rulename, **wildcards):
     for path in list(snakemake.log) + list(snakemake.output):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
-    os.chdir(script_dir)
+    #os.chdir(script_dir)
     return snakemake

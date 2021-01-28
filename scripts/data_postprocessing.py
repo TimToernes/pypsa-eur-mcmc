@@ -40,9 +40,9 @@ if __name__=='__main__':
             snakemake = mock_snakemake('data_postprocess')
             os.chdir('..')
         except :
-            os.chdir(os.getcwd()+'/scripts')
-            snakemake = mock_snakemake('data_postprocess')
             os.chdir('..')
+            snakemake = mock_snakemake('data_postprocess')
+            #os.chdir('..')
             
     configure_logging(snakemake,skip_handlers=True)
 
@@ -72,5 +72,7 @@ if __name__=='__main__':
 
     sol.merge()
 
-    sol.save_xlsx('results/result.xlsx')
+
+    sol.save_csv('results/result_')
+    #sol.save_xlsx('results/result.xlsx')
 # %%

@@ -3,27 +3,32 @@ import pypsa
 import os 
 import csv
 import numpy as np 
+import pandas as pd
 import re 
 from _helpers import configure_logging
+from _mcmc_helpers import *
 import multiprocessing as mp
 import queue # imported for using queue.Empty exception
 import time 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 #%%
 
-def write_csv(path,item):
-    # Write a list or numpy array (item) as csv file 
-    # to the specified path
-    with open(path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerows(item)
+def new_files(snakemake):
+    """ 
+    The function will return the a list of the network files 
+    that haven't been processed yet
+    """
+    batch = int(snakemake.config['sampler']['batch'])
+    chains = int(snakemake.config['sampler']['chains'])
+    sample_n = int(snakemake.wildcards['sample'])
 
-def read_csv(path):
-    item = []
-    with open(path, "r", newline="") as f:
-        reader = csv.reader(f)
-        for row in reader:
-            item.append(row)
-    return item
+    files = []
+    for c in range(chains):
+        for s in range(sample_n-batch,sample_n):
+            files.append(f'network_c{c}_s{s}.nc')
+    return files
+
 
 def increment_sample(path,incr=1):
     folder,file = os.path.split(path)
@@ -32,16 +37,6 @@ def increment_sample(path,incr=1):
     file_new = file.replace(sample_str,'s{}'.format(current_sample+incr))
     path_out = os.path.join(folder, file_new )
     return path_out
-
-def get_theta(network,mcmc_variables):
-    theta = []
-    for var in mcmc_variables:
-        if network.generators.index.isin(var).any():
-            theta.append(network.generators.p_nom_opt.loc[network.generators.index.isin(var)].sum())
-        else :
-            theta.append(network.storage_units.p_nom_opt.loc[network.storage_units.index.isin(var)].sum())
-
-    return theta
 
 def worker(q,thetas,mcmc_variables,q_proc_done):
     proc_name = mp.current_process().name
@@ -58,37 +53,27 @@ def worker(q,thetas,mcmc_variables,q_proc_done):
         else:
             if file[:7] == 'network':
                 network = pypsa.Network('inter_results/'+file)
-                theta = get_theta(network,mcmc_variables)
+                theta = {}
+                theta['s'] = network.sample
+                theta['c'] = network.chain
+                theta['a'] = network.accepted
+                theta['val'] = get_theta(network,mcmc_variables)
                 thetas.put(theta)
                 del(network)
 
-#%%
-if __name__=='__main__':
-    if 'snakemake' not in globals():
-        from _helpers import mock_snakemake
-        try:
-            snakemake = mock_snakemake('calc_sigma',sample=101)
-            os.chdir('..')
-        except :
-            os.chdir(os.getcwd()+'/scripts')
-            snakemake = mock_snakemake('calc_sigma',sample=101)
-            os.chdir('..')
-            
-    configure_logging(snakemake,skip_handlers=True)
-
-    # impor a network 
-    network = pypsa.Network(snakemake.input[0])
-    mcmc_variables = read_csv(network.mcmc_variables)
-    eps = snakemake.config['sampler']['eps']
-
+def schedule_workers(mcmc_variables):
+    """
+    Input: mcmc_variables
+    Output: dataframe containing theta values for unprocessed networks 
+    """
+    # Start multiprocessing manager and que for thetas 
     man = mp.Manager()
-
-
     thetas_q = man.Queue()
+
     # Itterate over all files in the inter_results directory 
-    # If the file is a network file, it is loaded and the theta value is extracted and stored to the thetas_q list
- 
-    dir_lst = os.listdir('inter_results/')
+    # If the file is a network file, it is loaded and the theta 
+    # value is extracted and stored to the thetas_q list
+    dir_lst = new_files(snakemake)
     q = man.Queue()
     q_proc_done = man.Queue()
     for d in dir_lst:
@@ -103,29 +88,74 @@ if __name__=='__main__':
     while q_proc_done.qsize()<snakemake.threads:
         time.sleep(1)
 
-
     for p in processes:
         p.kill()
         p.join()
 
     thetas = []
+    s_lst = []
+    c_lst = []
+    a_lst = []
     while thetas_q.qsize()>0:
-        thetas.append(thetas_q.get(30))
+        theta = thetas_q.get(30)
+        thetas.append(theta['val'])
+        s_lst.append(theta['s'])
+        c_lst.append(theta['c'])
+        a_lst.append(theta['a'])
 
-    thetas = np.array(thetas)
+
+    df = pd.DataFrame(data=thetas,columns=[str(x) for x in range(33)])
+    df['s'] = s_lst
+    df['c'] = c_lst
+    df['a'] = a_lst
+
+    return df
+
+#%%
+if __name__=='__main__':
+    # Setup of snakemake when debugging 
+    if 'snakemake' not in globals():
+        from _helpers import mock_snakemake
+        try:
+            snakemake = mock_snakemake('calc_sigma',sample=11)
+        except :
+            os.chdir('..')
+            snakemake = mock_snakemake('calc_sigma',sample=11)
+    # Setup logging
+    configure_logging(snakemake,skip_handlers=True)
+
+    # impor a network and other variables 
+    network = pypsa.Network(snakemake.input[0])
+    mcmc_variables = read_csv(network.mcmc_variables)
+    eps = float(snakemake.config['sampler']['eps'])
+
+    # Get the theta value for all new networks
+    df_theta = schedule_workers(mcmc_variables)
+
+    if os.path.isfile('inter_results/theta.csv'):
+        df_theta_old = pd.read_csv('inter_results/theta.csv',
+                                    index_col=0)
+        df_theta = pd.concat([df_theta,df_theta_old],ignore_index=True)
+    
+    df_theta.to_csv('inter_results/theta.csv')
+
+    thetas = np.array(df_theta.iloc[:,0:33])
 
     # Calculate sigma from the data. 
     # If the sigma values are low, the eps parameter is added to the diagonal 
     sigma = np.cov(thetas.T) 
-    if np.mean(sigma.diagonal())<eps:
-        sigma += np.identity(thetas.shape[1])*eps
+    #if np.mean(sigma.diagonal())<eps:
+    sigma += np.identity(thetas.shape[1])*eps
+    #else :
+    #    sigma += np.identity(thetas.shape[1])*0.1
 
     # Save sigme as csv and update the network.sigma path in the most recent networks
-    np.savetxt(snakemake.output[0],sigma)
+    np.savetxt(snakemake.output['sigma'],sigma)
+    #np.savetxt(snakemake.output['theta'],thetas)
 
     for inp in snakemake.input:
         network = pypsa.Network(inp)
-        network.sigma = increment_sample(network.sigma,100)
+        network.sigma = increment_sample(network.sigma,snakemake.config['sampler']['batch'])
         network.export_to_netcdf(inp)
 
 

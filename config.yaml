@@ -3,15 +3,16 @@ logging:
   level: INFO
   format: '%(levelname)s:%(name)s:%(message)s'
 
-network: 'data/networks/elec_s_37_ec_lcopt_Co2L_h80.nc'
+network: 'data/networks/elec_s_37_ec_lcopt_Co2L_h100.nc'
 
 mga_slack: 0.2
 mcmc_variables: 'all' # 'all' selects all 
 
 sampler:
-  chains: 2
-  samples: 501 # has to be a multiple of 101
-  eps: 500 # was 0.1  
+  chains: 1
+  samples: 6 # has to be a multiple of batch + 1
+  eps: 0.5
+  batch: 5
 
 
 solver:

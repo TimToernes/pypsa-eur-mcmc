@@ -108,6 +108,20 @@ class solutions:
         writer.save()
         print('saved {}'.format(file))
 
+    def save_csv(self, file_prefix='sol'):
+        self.df_list = {'gen_p':self.gen_p,
+                'gen_E':self.gen_E,
+                'store_E':self.store_E,
+                'store_p':self.store_p,
+                'links':self.links,
+                'sum_vars':self.sum_vars,
+                'secondary_metrics':self.secondary_metrics}
+        
+        for i, df in enumerate(self.df_list):
+            self.df_list[df].to_csv(file_prefix+df+".csv")
+        
+
+
     def calc_gini(self,network):
     # This function calculates the gini coefficient of a given PyPSA network.
         bus_total_prod = network.generators_t.p.sum().groupby(network.generators.bus).sum()
