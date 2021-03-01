@@ -6,6 +6,17 @@ import numpy as np
 from pypsa.linopt import get_var, define_constraints, linexpr
 
 
+override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
+override_component_attrs["Link"].loc["bus2"] = ["string",np.nan,np.nan,"2nd bus","Input (optional)"]
+override_component_attrs["Link"].loc["bus3"] = ["string",np.nan,np.nan,"3rd bus","Input (optional)"]
+override_component_attrs["Link"].loc["bus4"] = ["string",np.nan,np.nan,"4th bus","Input (optional)"]
+override_component_attrs["Link"].loc["efficiency2"] = ["static or series","per unit",1.,"2nd bus efficiency","Input (optional)"]
+override_component_attrs["Link"].loc["efficiency3"] = ["static or series","per unit",1.,"3rd bus efficiency","Input (optional)"]
+override_component_attrs["Link"].loc["efficiency4"] = ["static or series","per unit",1.,"4th bus efficiency","Input (optional)"]
+override_component_attrs["Link"].loc["p2"] = ["series","MW",0.,"2nd bus output","Output"]
+override_component_attrs["Link"].loc["p3"] = ["series","MW",0.,"3rd bus output","Output"]
+override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output","Output"]
+
 #%%
 
 
@@ -21,9 +32,9 @@ if 'snakemake' not in globals():
     
 configure_logging(snakemake)
 
-network = pypsa.Network(snakemake.input.network)
+network = pypsa.Network(snakemake.input.network,override_component_attrs=override_component_attrs)
 #network.snapshot_weightings *= 8760/len(network.snapshots)
-
+network.snapshots = network.snapshots[0:2]
 # %%
 
 network.lopf(**snakemake.config.get('solver'))

@@ -264,22 +264,42 @@ def add_local_co2_constraints(network, snapshots, local_emis):
             except:
                 pass
 
-        # Fix snakemake parse error for Norway ('NO' parsed as False):
-        if country == 'NO':
-            try:
-                local_emis[country]
-            except:
-                local_emis.update({'NO':local_emis[False]})
 
         expr = linexpr((const,variables)).sum().sum()
         define_constraints(network,expr,'<=',local_emis[country],'national_co2','{}'.format(country))
 
+
+def add_backup_constraints(network,snapshots,coverage=0.25):
+    # Add a constraint for every country requiring atleast 25% conventional backup capacity 
+    # relative to the hour with highest load. 
+
+    query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
+    id_co2_links = network.links.query(query_string('co2 atmosphere')).index
+
+    country_max_loads = network.loads_t.p_set.max().groupby(network.buses.country).sum()
+
+    country_codes = network.links.loc[id_co2_links].location.unique()
+
+    for country in country_codes:
+        if country != 'EU':
+            idx = network.links.query(f'location == "{country}"').index
+            all_vars = get_var(network,'Link','p_nom')
+            variables = all_vars[all_vars.index.isin(idx)]
+
+            expr = linexpr((np.ones(variables.shape), variables)).sum()
+
+            define_constraints(network,expr,'>=',country_max_loads[country]*coverage,'Conventional_backup_','{}'.format(country))
+
+
+        
 
 def extra_functionality(n, snapshots):
     #add_opts_constraints(n, opts)
     #add_eps_storage_constraint(n)
     add_chp_constraints(n)
     add_battery_constraints(n)
+    backup_coef = snakemake.config['conventional_backup']
+    add_backup_constraints(n,snapshots,backup_coef)
 
     if snakemake.config['use_local_co2_constraints']:
         n = set_link_locations(n)

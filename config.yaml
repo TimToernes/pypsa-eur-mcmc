@@ -9,6 +9,7 @@ tmpdir: './tmp/'
 mga_slack: 0.1
 mcmc_variables: 'all' # 'all' selects all 
 co2_budget: 38750000
+conventional_backup: 0.5 # minimum 50% backup capacity from conventional power plants 
 
 
 sampler:

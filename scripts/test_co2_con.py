@@ -2,6 +2,7 @@
 import pypsa
 import numpy as np
 from pypsa.linopt import get_var, define_constraints, linexpr, get_dual
+
 #%%
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
@@ -16,7 +17,7 @@ override_component_attrs["Link"].loc["p3"] = ["series","MW",0.,"3rd bus output",
 override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output","Output"]
 
 # %%
-network = pypsa.Network('../data/networks/elec_s_37_lv1.5__Co2L0p25-3H-T-H-B-I-solar+p3-dist1_2030.nc',
+network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p100-3H-solar+p3-dist1_2030.nc',
 #network = pypsa.Network('../data/networks/elec_s_37_lv1.5__Co2L0p25-3H-T-H-B-I-solar+p3-dist1_2030.nc',
 #network = pypsa.Network('../data/networks/test.nc',
                         override_component_attrs=override_component_attrs)
@@ -33,7 +34,8 @@ solver = {
   "solver_name": 'gurobi',
   "formulation": 'kirchhoff',
   "pyomo": False,
-  "keep_references": False,
+  "keep_references": True,
+  "keep_shadowprices": True,
   "solver_options": {
     "threads": 4,
     "method": 2, # barrier
@@ -44,7 +46,7 @@ solver = {
     "PreDual": 0,
     }}
 
-stat = network.lopf(**solver,keep_shadowprices=False,)
+stat = network.lopf(**solver)
                     
 
 #%% Set link locations 
@@ -157,12 +159,39 @@ def add_local_co2_constraints(network, snapshots, local_emis):
 
         define_constraints(network,expr,'<=',local_emis[country],'national_co2','{}'.format(country))
 
+#%%
+
+def add_backup_constraints(network,snapshots,coverage=0.25):
+    # Add a constraint for every country requiring atleast 25% conventional backup capacity 
+    # relative to the hour with highest load. 
+
+    query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
+    id_co2_links = network.links.query(query_string('co2 atmosphere')).index
+
+    country_max_loads = network.loads_t.p.max().groupby(network.buses.country).sum()
+
+    country_codes = network.links.loc[id_co2_links].location.unique()
+
+    for country in country_codes:
+        if country != 'EU':
+            idx = network.links.query(f'location == "{country}"').index
+            all_vars = get_var(network,'Link','p_nom')
+            variables = all_vars[all_vars.index.isin(idx)]
+
+            expr = linexpr((np.ones(variables.shape), variables)).sum()
+
+            define_constraints(network,expr,'>=',country_max_loads[country]*coverage,'Conventional_backup_','{}'.format(country))
+
+
+        
+
 
 #%%
 
 def extra_functionality(network,snapshots,local_emis):
     network = set_link_locations(network)
     add_local_co2_constraints(network, snapshots, local_emis)
+    add_backup_constraints(network,snapshots,0.5)
 
 
 # %%
@@ -179,7 +208,7 @@ extra_func = lambda n, s: extra_functionality(n,
                                             local_emis
                                              )
 
-stat = network.lopf(**solver,keep_shadowprices=False,
+stat = network.lopf(**solver,
                     extra_functionality=extra_func)
 
 # %%
