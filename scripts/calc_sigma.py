@@ -12,6 +12,20 @@ import queue # imported for using queue.Empty exception
 import time 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
+
+override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
+override_component_attrs["Link"].loc["bus2"] = ["string",np.nan,np.nan,"2nd bus","Input (optional)"]
+override_component_attrs["Link"].loc["bus3"] = ["string",np.nan,np.nan,"3rd bus","Input (optional)"]
+override_component_attrs["Link"].loc["bus4"] = ["string",np.nan,np.nan,"4th bus","Input (optional)"]
+override_component_attrs["Link"].loc["efficiency2"] = ["static or series","per unit",1.,"2nd bus efficiency","Input (optional)"]
+override_component_attrs["Link"].loc["efficiency3"] = ["static or series","per unit",1.,"3rd bus efficiency","Input (optional)"]
+override_component_attrs["Link"].loc["efficiency4"] = ["static or series","per unit",1.,"4th bus efficiency","Input (optional)"]
+override_component_attrs["Link"].loc["p2"] = ["series","MW",0.,"2nd bus output","Output"]
+override_component_attrs["Link"].loc["p3"] = ["series","MW",0.,"3rd bus output","Output"]
+override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output","Output"]
+
 #%%
 
 def new_files(snakemake):
@@ -38,7 +52,9 @@ def increment_sample(path,incr=1):
     path_out = os.path.join(folder, file_new )
     return path_out
 
-def worker(q,thetas,mcmc_variables,q_proc_done):
+
+
+def worker(q,thetas,mcmc_variables,co2_budget,q_proc_done):
     proc_name = mp.current_process().name
     while True:
         try:
@@ -52,16 +68,18 @@ def worker(q,thetas,mcmc_variables,q_proc_done):
             break
         else:
             if file[:7] == 'network':
-                network = pypsa.Network('inter_results/'+file)
+                network = pypsa.Network('inter_results/'+file,override_component_attrs=override_component_attrs)
                 theta = {}
                 theta['s'] = network.sample
                 theta['c'] = network.chain
                 theta['a'] = network.accepted
-                theta['val'] = get_theta(network,mcmc_variables)
+                #theta['val'] = get_theta(network,mcmc_variables,co2_budget)
+                country_emis = get_country_emis(network)
+                theta['val'] = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
                 thetas.put(theta)
                 del(network)
 
-def schedule_workers(mcmc_variables):
+def schedule_workers(mcmc_variables,co2_budget):
     """
     Input: mcmc_variables
     Output: dataframe containing theta values for unprocessed networks 
@@ -81,7 +99,7 @@ def schedule_workers(mcmc_variables):
 
     processes = []
     for i in range(snakemake.threads):
-        p = mp.Process(target=worker,args=(q,thetas_q,mcmc_variables,q_proc_done))
+        p = mp.Process(target=worker,args=(q,thetas_q,mcmc_variables,co2_budget,q_proc_done))
         p.start()
         processes.append(p)
     
@@ -104,7 +122,7 @@ def schedule_workers(mcmc_variables):
         a_lst.append(theta['a'])
 
 
-    df = pd.DataFrame(data=thetas,columns=[str(x) for x in range(33)])
+    df = pd.DataFrame(data=thetas,columns=[str(x) for x in range(34)])
     df['s'] = s_lst
     df['c'] = c_lst
     df['a'] = a_lst
@@ -117,20 +135,22 @@ if __name__=='__main__':
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
-            snakemake = mock_snakemake('calc_sigma',sample=11)
+            snakemake = mock_snakemake('calc_sigma',sample=6)
         except :
             os.chdir('..')
-            snakemake = mock_snakemake('calc_sigma',sample=11)
+            snakemake = mock_snakemake('calc_sigma',sample=6)
     # Setup logging
     configure_logging(snakemake,skip_handlers=True)
 
     # impor a network and other variables 
     network = pypsa.Network(snakemake.input[0])
     mcmc_variables = read_csv(network.mcmc_variables)
+    mcmc_variables = [row[0]+row[1] for row in mcmc_variables]
     eps = float(snakemake.config['sampler']['eps'])
 
     # Get the theta value for all new networks
-    df_theta = schedule_workers(mcmc_variables)
+    co2_budget = snakemake.config['co2_budget']
+    df_theta = schedule_workers(mcmc_variables,co2_budget)
 
     if os.path.isfile('inter_results/theta.csv'):
         df_theta_old = pd.read_csv('inter_results/theta.csv',
@@ -143,9 +163,11 @@ if __name__=='__main__':
 
     # Calculate sigma from the data. 
     # If the sigma values are low, the eps parameter is added to the diagonal 
-    sigma = np.cov(thetas.T) 
+    #sigma = np.cov(thetas.T) 
+    sigma = np.std(thetas,axis=0)
     #if np.mean(sigma.diagonal())<eps:
-    sigma += np.identity(thetas.shape[1])*eps
+    #sigma += np.identity(thetas.shape[1])*eps
+    sigma[sigma<eps] = eps
     #else :
     #    sigma += np.identity(thetas.shape[1])*0.1
 

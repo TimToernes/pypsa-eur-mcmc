@@ -8,16 +8,19 @@ import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 from _helpers import configure_logging
-#%%
+#%% Data import 
 
 
 theta = pd.read_csv('inter_results/theta.csv',index_col=0)
 means = theta.mean()[0:33]
 stds = theta.std()[0:33]
 
-
 theta.columns = [f'theta_{x}' for x in range(33)]+['s','c','a']
 theta['id'] = theta.index
+
+accept_percent = sum(theta.a)/theta.shape[0]*100
+print(f'Acceptance {accept_percent:.1f}%')
+print('Means:\n',means)
 
 theta_long = pd.wide_to_long(theta,stubnames=['theta_'],i='id',j='theta')
 theta_long = theta_long.reset_index(level=['theta'])
@@ -38,38 +41,24 @@ sns.relplot(
     height=5, aspect=.75, 
 )
 
+#%% Correlogram
+
+# library & dataset
+import matplotlib.pyplot as plt
+import seaborn as sns
+#df = sns.load_dataset('iris')
+df = theta.iloc[:,10:20]
+df['c'] = theta.c
+# with regression
+#sns.pairplot(df, kind="reg")
+#plt.show()
+ 
+# without regression
+sns.pairplot(df, kind="hist", hue="c", diag_kind='kde')
+plt.show()
+
 
 #%%
-
-import matplotlib.ticker as ticker
-# Initialize the figure with a logarithmic x axis
-f, ax = plt.subplots(figsize=(7, 10))
-#ax.set_xscale("log")
-
-# Plot the orbital period with horizontal boxes
-ax = sns.boxplot(x="theta_", 
-            y="theta", 
-            data=theta_long,
-            #whis=[0, 100], 
-            #width=.6, 
-            palette="vlag")
-
-ax.xaxis.set_major_locator(ticker.MultipleLocator(1e3))
-ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
-ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
-ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
-
-# Add in points to show each observation
-sns.stripplot(x="theta_", y="theta", data=theta_long,
-              size=2, color=".3", linewidth=0)
-
-# Tweak the visual presentation
-ax.xaxis.grid(True)
-#ax.set(ylabel="")
-sns.despine(trim=True, left=True)
-
-#%%
-
 
 def calc_gelman_rubenstain(theta):
     """
@@ -100,6 +89,8 @@ def calc_gelman_rubenstain(theta):
     psrf = np.sqrt((d+3)/(d+1)*V_hat/W)
                         
     return psrf
+
+calc_gelman_rubenstain(theta)
 
 #%%
 if __name__=='__main__':

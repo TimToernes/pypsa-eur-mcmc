@@ -6,3 +6,6 @@
 
 # Ignore intermediate results 
 inter_results/*
+tmp/*
+results/*
+graphics/*

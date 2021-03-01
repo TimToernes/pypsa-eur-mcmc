@@ -16,8 +16,17 @@ class solutions:
         self.store_p =  pd.DataFrame(data=[network.storage_units.p_nom_opt],index=[0])
         self.store_E =  pd.DataFrame(data=[network.storage_units_t.p.sum()],index=[0])
         self.links =    pd.DataFrame(data=[network.links.p_nom_opt],index=[0])
+        co2_emis = self.calc_co2_emis_pr_node(network)
+        self.co2_pr_node = pd.DataFrame(columns=co2_emis.index,data=[co2_emis.values])
         self.secondary_metrics = self.calc_secondary_metrics(network)
         self.objective = pd.DataFrame()
+        try :
+            c = network.chain 
+            s = network.sample
+            self.df_chain = pd.DataFrame(data=dict(c=[c],s=[s]))
+        except : 
+            pass 
+
         if manager != None:
             self.queue = manager.Queue()
 
@@ -26,6 +35,7 @@ class solutions:
                         'store_E':self.store_E,
                         'store_p':self.store_p,
                         'links':self.links,
+                        'co2_pr_node':self.co2_pr_node,
                         'sum_vars':self.sum_vars,
                         'secondary_metrics':self.secondary_metrics}
 
@@ -45,10 +55,11 @@ class solutions:
     def calc_secondary_metrics(self,network):
         # Calculate secondary metrics
         gini = self.calc_gini(network)
+        gini_co2 = self.calc_co2_gini(network)
         co2_emission = self.calc_co2_emission(network)
         system_cost = self.calc_system_cost(network)
         autoarky = self.calc_autoarky(network)
-        return pd.DataFrame({'system_cost':system_cost,'co2_emission':co2_emission,'gini':gini,'autoarky':autoarky},index=[0])
+        return pd.DataFrame({'system_cost':system_cost,'co2_emission':co2_emission,'gini':gini,'gini_co2':gini_co2,'autoarky':autoarky},index=[0])
 
     def calc_sum_vars(self,network):
         sum_data = dict(network.generators.p_nom_opt.groupby(network.generators.carrier).sum())
@@ -62,7 +73,7 @@ class solutions:
     # add new data to the solutions queue. This is used when new data is added from
     # sub-process, when using multiprocessing
         try :
-            self.queue.qsize()
+            self.queue
         except:
             print('creating queue object')
             self.queue = Queue()
@@ -79,7 +90,8 @@ class solutions:
 
     def merge(self):
         # Merge all solutions put into the solutions queue into the solutions dataframes
-        merge_num = self.queue.qsize()
+        #merge_num = self.queue.qsize()
+        merge_num='!! not working !!'
         while not self.queue.empty() :
             part_res = self.queue.get(60)
             self.gen_E = self.gen_E.append(part_res.gen_E,ignore_index=True)
@@ -87,9 +99,16 @@ class solutions:
             self.store_E = self.store_E.append(part_res.store_E,ignore_index=True)
             self.store_p = self.store_p.append(part_res.store_p,ignore_index=True)
             self.links = self.links.append(part_res.links,ignore_index=True)
+            self.co2_pr_node = self.co2_pr_node.append(part_res.co2_pr_node,ignore_index=True)
             self.sum_vars = self.sum_vars.append(part_res.sum_vars,ignore_index=True)
             self.secondary_metrics = self.secondary_metrics.append(part_res.secondary_metrics,ignore_index=True)
-        print('merged {} solution'.format(merge_num))
+            try : 
+                self.df_chain
+            except : 
+                pass
+            else : 
+                self.df_chain = self.df_chain.append(part_res.df_chain,ignore_index=True)
+        #print('merged {} solution'.format(merge_num))
 
     def save_xlsx(self,file='save.xlsx'):
         # Store all dataframes als excel file
@@ -114,8 +133,15 @@ class solutions:
                 'store_E':self.store_E,
                 'store_p':self.store_p,
                 'links':self.links,
+                'co2_pr_node':self.co2_pr_node,
                 'sum_vars':self.sum_vars,
                 'secondary_metrics':self.secondary_metrics}
+        try : 
+            self.df_chain
+        except : 
+            pass
+        else : 
+            self.df_list['chain'] = self.df_chain
         
         for i, df in enumerate(self.df_list):
             self.df_list[df].to_csv(file_prefix+df+".csv")
@@ -180,7 +206,62 @@ class solutions:
 
     def calc_system_cost(self,network):
         #Cost
-        capital_cost = sum(network.generators.p_nom_opt*network.generators.capital_cost) + sum(network.links.p_nom_opt*network.links.capital_cost) + sum(network.storage_units.p_nom_opt * network.storage_units.capital_cost)
-        marginal_cost = network.generators_t.p.groupby(network.generators.carrier,axis=1).sum().sum() * network.generators.marginal_cost.groupby(network.generators.type).mean()
-        total_system_cost = marginal_cost.sum() + capital_cost
+        #capital_cost = sum(network.generators.p_nom_opt*network.generators.capital_cost) + sum(network.links.p_nom_opt*network.links.capital_cost) + sum(network.storage_units.p_nom_opt * network.storage_units.capital_cost)
+        #marginal_cost = network.generators_t.p.groupby(network.generators.carrier,axis=1).sum().sum() * network.generators.marginal_cost.groupby(network.generators.type).mean()
+        #total_system_cost = marginal_cost.sum() + capital_cost
+        total_system_cost = network.objective
         return total_system_cost
+
+
+
+    def calc_co2_emis_pr_node(self,network):
+
+        co2_emis = {}
+        for bus in network.buses.index:
+            local_emis = 0 
+            for gen in network.generators.query("bus == '{}' ".format(bus)).index:
+
+                gen_emis = 1/network.generators.efficiency.loc[gen] 
+                gen_emis *= (network.snapshot_weightings*network.generators_t.p.T).T.sum().loc[gen]
+                try:
+                    gen_emis *= network.carriers.co2_emissions.loc[network.generators.carrier.loc[gen]]
+                except Exception:
+                    pass
+                local_emis += gen_emis
+            co2_emis[bus] = local_emis
+            co2_emis = pd.Series(co2_emis)
+        return co2_emis
+
+
+
+    def calc_co2_gini(self,network):
+
+        co2_emis = self.calc_co2_emis_pr_node(network)
+        #co2_emis = pd.Series(co2_emis)
+
+        #bus_total_prod = network.generators_t.p.sum().groupby(network.generators.bus).sum()
+        load_total= network.loads_t.p_set.sum()
+
+        rel_demand = load_total/sum(load_total)
+        rel_generation = co2_emis/sum(co2_emis)
+
+        # Rearange demand and generation to be of increasing magnitude
+        idy = np.argsort(rel_generation/rel_demand)
+        rel_demand = rel_demand[idy]
+        rel_generation = rel_generation[idy]
+
+        # Calculate cumulative sum and add [0,0 as point
+        rel_demand = np.cumsum(rel_demand)
+        rel_demand = np.concatenate([[0],rel_demand])
+        rel_generation = np.cumsum(rel_generation)
+        rel_generation = np.concatenate([[0],rel_generation])
+
+        lorenz_integral= 0
+        for i in range(len(rel_demand)-1):
+            lorenz_integral += (rel_demand[i+1]-rel_demand[i])*(rel_generation[i+1]-rel_generation[i])/2 + (rel_demand[i+1]-rel_demand[i])*rel_generation[i]
+
+        gini = 1- 2*lorenz_integral
+        return gini
+
+
+# %%
