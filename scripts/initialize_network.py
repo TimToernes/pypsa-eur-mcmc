@@ -15,7 +15,7 @@ import pypsa
 import os
 import csv
 from _helpers import configure_logging
-from _mcmc_helpers import write_csv
+from _mcmc_helpers import *
 import numpy as np
 sys.path.append('./scripts/')
 import warnings
@@ -158,6 +158,11 @@ if __name__ == '__main__':
     network.objective_optimum = network.objective
     network.accepted = 1 
 
+    co2_budget = snakemake.config['co2_budget']
+    country_emis = get_country_emis(network)
+    theta = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
+    network.theta = theta_to_str(theta)
+
     # Save the starting point for each chain
     for i,p in enumerate(snakemake.output[:-1]):
 
@@ -168,5 +173,3 @@ if __name__ == '__main__':
 
 # %%
 
-
-# %%

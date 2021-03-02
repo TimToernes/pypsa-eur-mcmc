@@ -58,6 +58,20 @@ def write_csv(path,item):
         writer.writerows(item)
 
 
+def theta_to_str(theta):
+    s = ''
+    for t in theta:
+        s += str(t)
+        s += ';'
+    return s 
+
+def str_to_theta(s):
+    l = []
+    for num in s.split(';')[:-1]:
+        l.append(float(num))
+    a = np.array(l)
+    return a 
+
 
 def get_country_emis(network):
 

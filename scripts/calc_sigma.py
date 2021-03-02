@@ -159,7 +159,7 @@ if __name__=='__main__':
     
     df_theta.to_csv('inter_results/theta.csv')
 
-    thetas = np.array(df_theta.iloc[:,0:33])
+    thetas = np.array(df_theta.iloc[:,0:34])
 
     # Calculate sigma from the data. 
     # If the sigma values are low, the eps parameter is added to the diagonal 

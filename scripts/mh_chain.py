@@ -190,7 +190,9 @@ def sample(network):
 
     co2_budget = snakemake.config['co2_budget']
     country_emis = get_country_emis(network)
-    theta = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
+    #theta = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
+    theta = str_to_theta(network.theta)
+
     #theta = get_theta(network,mcmc_variables,snakemake.config['co2_budget'])
     #sigma = np.array(read_csv(snakemake.input[1])).astype(float)
     sigma = np.genfromtxt(snakemake.input[1])
@@ -221,12 +223,13 @@ def sample(network):
     snakemake.config['use_local_co2_constraints'] = True
     snakemake.config['local_emission_constraints'] = co2_alocations
 
-    network = solve_network.prepare_network(network)
+    #network = solve_network.prepare_network(network)
     network = solve_network.solve_network(network)
     #network = solve_network(network,mcmc_variables,co2_alocations,tmpdir)
     cost_i = network.objective 
+
     pr_i = calc_pr(network,cost_i)
-    return network, pr_i
+    return network, pr_i, theta_proposed , theta
 
 
 #%%
@@ -234,11 +237,11 @@ if __name__=='__main__':
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
-            snakemake = mock_snakemake('run_single_chain',chain=0,sample=6)
+            snakemake = mock_snakemake('run_single_chain',chain=0,sample=21)
             os.chdir('..')
         except :
             os.chdir('..')
-            snakemake = mock_snakemake('run_single_chain',chain=0,sample=6)
+            snakemake = mock_snakemake('run_single_chain',chain=0,sample=21)
 
     import builtins 
     builtins.snakemake = snakemake
@@ -259,18 +262,20 @@ if __name__=='__main__':
     
         alpha = np.random.rand()
         # Get the likelihood estimate pr_i from the network 
-        network_old = network.copy()
-        network, pr_i = sample(network)
+        print(str_to_theta(network.theta))
+        network, pr_i, theta_proposed, theta_old = sample(network)
         # Accept or reject the sample 
         if alpha<pr_i: # Sample accepted, save solved network
             logging.info('sample accepted')
             network.sample = n_sample+1
             network.accepted = 1
+            network.theta = theta_to_str(theta_proposed)
             network.export_to_netcdf(out)
         else : # Sample rejected, copy previous network to next
             logging.info('sample rejected')
             network = pypsa.Network(out_prev,
                             override_component_attrs=override_component_attrs)
+            network.theta = theta_to_str(theta_old)
             network.sample = n_sample+1
             network.accepted = 0 
             network.export_to_netcdf(out)
