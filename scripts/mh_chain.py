@@ -262,7 +262,7 @@ if __name__=='__main__':
     
         alpha = np.random.rand()
         # Get the likelihood estimate pr_i from the network 
-        print(str_to_theta(network.theta))
+        #print(str_to_theta(network.theta))
         network, pr_i, theta_proposed, theta_old = sample(network)
         # Accept or reject the sample 
         if alpha<pr_i: # Sample accepted, save solved network

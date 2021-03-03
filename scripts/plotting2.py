@@ -15,10 +15,10 @@ import time
 import scipy
 import matplotlib.pyplot as plt
 import seaborn as sns
-#os.chdir('..')
+os.chdir('..')
 # %% import datasets 
 
-run_name = 'h8759_model'
+run_name = 'h100_model'
 #run_name = 'h99_model'
 
 #network = pypsa.Network('inter_results/network_c0_s10.nc')
@@ -28,10 +28,11 @@ df_sum = pd.read_csv(f'results/{run_name}/result_sum_vars.csv',index_col=0)
 df_gen_p = pd.read_csv(f'results/{run_name}/result_gen_p.csv',index_col=0)
 df_co2 = pd.read_csv(f'results/{run_name}/result_co2_pr_node.csv',index_col=0)
 df_chain = pd.read_csv(f'results/{run_name}/result_chain.csv',index_col=0)
+df_links = pd.read_csv(f'results/{run_name}/result_links.csv',index_col=0)
 
 
 theta = pd.read_csv(f'results/{run_name}/theta.csv',index_col=0)
-theta.columns = [f'theta_{x}' for x in range(33)]+['s','c','a']
+theta.columns = [f'theta_{x}' for x in range(34)]+['s','c','a']
 theta['id'] = theta.index
 # %% Calc data for cost increase and co2 reduction 
 
@@ -61,11 +62,16 @@ country_max_load = network.loads_t.p.max().groupby(network.buses.country).sum()
 
 filt_backup = (ocgt_pr_country>0.1*country_max_load).all(axis=1)
 
+#%%
+
+df_link_sum = df_links.groupby(network.links.carrier,axis=1).sum()
+
 #%% Corrolelogram tech
 
-df = df_sum[['OCGT', 'offwind-ac', 'offwind-dc', 'onwind', 'solar', 'transmission', 'H2', 'battery',]]
+#df = df_sum[['OCGT', 'offwind-ac', 'offwind-dc', 'onwind', 'solar', 'transmission', 'H2', 'battery',]]
+df = df_link_sum[['OCGT','H2 Electrolysis','SMR','Sabatier']]
 #df = df[df_chain.s>200]
-df['co2<150p'] = filt_co2_150p
+#df['co2<150p'] = filt_co2_150p
 #df['10p_backup'] = filt_backup
 #df['c'] = df_chain.c
 #df = df[df_secondary.co2_reduction>50]
@@ -75,7 +81,7 @@ df['co2<150p'] = filt_co2_150p
 #plt.show()
  
 # without regression
-sns_plot = sns.pairplot(df, kind="hist", diag_kind='kde',hue='co2<150p')
+sns_plot = sns.pairplot(df, kind="hist", diag_kind='kde')#,hue='co2<150p')
 plt.suptitle('Scenarios with less than 150% local emisons compared to 100% coal production')
 #plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
 
@@ -85,8 +91,6 @@ fig.show()
 
 #%% Corrolelogram secondary metrics
 
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 df_secondary['transmission'] = df_sum['transmission']
 #df = sns.load_dataset('iris')

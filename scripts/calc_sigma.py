@@ -74,8 +74,10 @@ def worker(q,thetas,mcmc_variables,co2_budget,q_proc_done):
                 theta['c'] = network.chain
                 theta['a'] = network.accepted
                 #theta['val'] = get_theta(network,mcmc_variables,co2_budget)
-                country_emis = get_country_emis(network)
-                theta['val'] = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
+                #country_emis = get_country_emis(network)
+                #theta['val'] = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
+                theta['val'] = str_to_theta(network.theta)
+
                 thetas.put(theta)
                 del(network)
 
