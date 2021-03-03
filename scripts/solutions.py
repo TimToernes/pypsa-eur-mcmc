@@ -16,6 +16,7 @@ class solutions:
         self.store_p =  pd.DataFrame(data=[network.storage_units.p_nom_opt],index=[0])
         self.store_E =  pd.DataFrame(data=[network.storage_units_t.p.sum()],index=[0])
         self.links =    pd.DataFrame(data=[network.links.p_nom_opt],index=[0])
+        self.lines =    pd.DataFrame(data=[network.lines.s_nom_opt],index=[0])
         co2_emis = self.calc_co2_emis_pr_node(network)
         self.co2_pr_node = pd.DataFrame(columns=co2_emis.index,data=[co2_emis.values])
         self.secondary_metrics = self.calc_secondary_metrics(network)
@@ -35,6 +36,7 @@ class solutions:
                         'store_E':self.store_E,
                         'store_p':self.store_p,
                         'links':self.links,
+                        'lines':self.lines,
                         'co2_pr_node':self.co2_pr_node,
                         'sum_vars':self.sum_vars,
                         'secondary_metrics':self.secondary_metrics}
@@ -99,6 +101,7 @@ class solutions:
             self.store_E = self.store_E.append(part_res.store_E,ignore_index=True)
             self.store_p = self.store_p.append(part_res.store_p,ignore_index=True)
             self.links = self.links.append(part_res.links,ignore_index=True)
+            self.lines = self.lines.append(part_res.lines,ignore_index=True)
             self.co2_pr_node = self.co2_pr_node.append(part_res.co2_pr_node,ignore_index=True)
             self.sum_vars = self.sum_vars.append(part_res.sum_vars,ignore_index=True)
             self.secondary_metrics = self.secondary_metrics.append(part_res.secondary_metrics,ignore_index=True)
@@ -117,6 +120,7 @@ class solutions:
                 'store_E':self.store_E,
                 'store_p':self.store_p,
                 'links':self.links,
+                'lines':self.lines,
                 'sum_vars':self.sum_vars,
                 'secondary_metrics':self.secondary_metrics}
 
@@ -133,6 +137,7 @@ class solutions:
                 'store_E':self.store_E,
                 'store_p':self.store_p,
                 'links':self.links,
+                'lines':self.lines,
                 'co2_pr_node':self.co2_pr_node,
                 'sum_vars':self.sum_vars,
                 'secondary_metrics':self.secondary_metrics}

@@ -96,6 +96,7 @@ def set_link_locations(network):
     for country in country_buses:
         for bus in country_buses[country]:
             idx = network.links.loc[id_co2_links].query(query_string(bus))['location'].index
+            #idx = network.links.query(query_string(bus))['location'].index
             network.links.loc[idx,'location'] = country
 
     # Links connecting to co2 atmosphere without known location are set to belong to EU

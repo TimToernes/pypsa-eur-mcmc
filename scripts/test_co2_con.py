@@ -168,7 +168,7 @@ def add_backup_constraints(network,snapshots,coverage=0.25):
     query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
     id_co2_links = network.links.query(query_string('co2 atmosphere')).index
 
-    country_max_loads = network.loads_t.p.max().groupby(network.buses.country).sum()
+    country_max_loads = network.loads_t.p_set.max().groupby(network.buses.country).sum()
 
     country_codes = network.links.loc[id_co2_links].location.unique()
 
