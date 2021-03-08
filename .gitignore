@@ -10,3 +10,5 @@ tmp/*
 results/*
 graphics/*
 config.yaml
+.slurm-logs/*
+*.pyc
