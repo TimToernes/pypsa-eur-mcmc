@@ -1,0 +1,200 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 4
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	calc_sigma
+	1
+Select jobs to execute...
+
+[Wed Mar  3 16:05:09 2021]
+rule calc_sigma:
+    input: inter_results/network_c0_s561.nc, inter_results/network_c1_s561.nc, inter_results/network_c2_s561.nc, inter_results/network_c3_s561.nc, inter_results/network_c4_s561.nc, inter_results/network_c5_s561.nc, inter_results/network_c6_s561.nc, inter_results/network_c7_s561.nc
+    output: inter_results/sigma_s561.csv
+    jobid: 0
+    wildcards: sample=561
+    threads: 4
+
+/home/201403848/anaconda3_new/envs/pypsa-eur/bin/python3.8 /home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/.snakemake/scripts/tmp0ogh5nni.calc_sigma.py
+INFO:pypsa.io:Imported network network_c0_s561.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s542.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s541.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s543.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s544.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s545.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s546.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s547.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s548.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s549.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s551.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s550.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s552.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s553.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s555.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s554.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s556.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s557.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s559.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s558.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s560.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s541.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s542.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s543.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s544.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s545.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s546.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s547.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s548.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s549.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s550.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s551.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s552.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s553.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s554.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s555.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s556.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s557.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s558.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s559.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c1_s560.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s541.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s542.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s543.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s544.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s545.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s546.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s547.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s548.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s549.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s550.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s551.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s552.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s553.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s554.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s555.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s556.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s557.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s558.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s559.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c2_s560.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s541.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s542.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s543.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s544.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s545.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s546.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s547.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s548.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s549.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s550.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s551.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s552.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s553.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s554.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s555.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s556.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s557.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s558.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s559.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c3_s560.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s541.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s542.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s543.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s544.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s545.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s546.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s547.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s548.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s549.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s550.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s551.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s552.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s553.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s554.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s555.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s556.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s557.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s558.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s559.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c4_s560.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s541.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s542.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s543.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s544.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s545.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s546.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s547.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s548.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s549.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s550.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s551.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s552.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s553.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s554.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s555.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s556.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s557.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s558.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s559.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c5_s560.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s541.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s542.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s543.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s544.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s545.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s546.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s547.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s548.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s549.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s550.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s551.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s552.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s553.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s554.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s555.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s556.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s557.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s558.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s559.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c6_s560.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s541.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s542.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s543.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s544.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s545.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s546.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s547.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s548.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s549.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s550.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s551.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s552.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s553.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s554.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s555.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s556.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s557.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s558.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s559.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c7_s560.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Imported network network_c0_s561.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:numexpr.utils:Note: NumExpr detected 64 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+INFO:pypsa.io:Exported network network_c0_s561.nc has buses, stores, lines, storage_units, global_constraints, carriers, loads, generators, links
+INFO:pypsa.io:Imported network network_c1_s561.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Exported network network_c1_s561.nc has buses, stores, lines, storage_units, global_constraints, carriers, loads, generators, links
+INFO:pypsa.io:Imported network network_c2_s561.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Exported network network_c2_s561.nc has buses, stores, lines, storage_units, global_constraints, carriers, loads, generators, links
+INFO:pypsa.io:Imported network network_c3_s561.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Exported network network_c3_s561.nc has buses, stores, lines, storage_units, global_constraints, carriers, loads, generators, links
+INFO:pypsa.io:Imported network network_c4_s561.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Exported network network_c4_s561.nc has buses, stores, lines, storage_units, global_constraints, carriers, loads, generators, links
+INFO:pypsa.io:Imported network network_c5_s561.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Exported network network_c5_s561.nc has buses, stores, lines, storage_units, global_constraints, carriers, loads, generators, links
+INFO:pypsa.io:Imported network network_c6_s561.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Exported network network_c6_s561.nc has buses, stores, lines, storage_units, global_constraints, carriers, loads, generators, links
+INFO:pypsa.io:Imported network network_c7_s561.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Exported network network_c7_s561.nc has buses, stores, lines, storage_units, global_constraints, carriers, loads, generators, links
+[Wed Mar  3 16:05:53 2021]
+Finished job 0.
+1 of 1 steps (100%) done

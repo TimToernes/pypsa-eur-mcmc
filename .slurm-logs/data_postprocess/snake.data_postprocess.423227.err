@@ -1,0 +1,48 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 4
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	data_postprocess
+	1
+Select jobs to execute...
+
+[Thu Mar  4 15:29:49 2021]
+rule data_postprocess:
+    input: inter_results/network_c0_s921.nc, inter_results/network_c1_s921.nc, inter_results/network_c2_s921.nc, inter_results/network_c3_s921.nc, inter_results/network_c4_s921.nc, inter_results/network_c5_s921.nc, inter_results/network_c6_s921.nc, inter_results/network_c7_s921.nc
+    output: results/result.xlsx
+    jobid: 0
+    threads: 4
+
+/home/201403848/anaconda3_new/envs/pypsa-eur/bin/python3.8 /home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/.snakemake/scripts/tmptteik7fq.data_postprocessing.py
+/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/pypsa/io.py:769: FutureWarning: Index.__or__ operating as a set operation is deprecated, in the future this will be a logical operation matching Series.__or__.  Use index.union(other) instead
+  pnl[attr] = pnl[attr].reindex(columns=df.index | columns, fill_value=default)
+/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/pypsa/io.py:771: FutureWarning: Index.__or__ operating as a set operation is deprecated, in the future this will be a logical operation matching Series.__or__.  Use index.union(other) instead
+  pnl[attr] = pnl[attr].reindex(columns=(pnl[attr].columns | columns))
+INFO:pypsa.io:Imported network network_c0_s921.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:numexpr.utils:Note: NumExpr detected 64 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+Traceback (most recent call last):
+  File "/home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/.snakemake/scripts/tmptteik7fq.data_postprocessing.py", line 57, in <module>
+    sol = solutions(network, man)
+  File "/home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/scripts/solutions.py", line 18, in __init__
+    self.store = pd.DataFrame(data=[network.storage_units.e_nom_opt],index=[0])
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/pandas/core/generic.py", line 5462, in __getattr__
+    return object.__getattribute__(self, name)
+AttributeError: 'DataFrame' object has no attribute 'e_nom_opt'
+[Thu Mar  4 15:30:59 2021]
+Error in rule data_postprocess:
+    jobid: 0
+    output: results/result.xlsx
+
+RuleException:
+CalledProcessError in line 70 of /home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/Snakefile:
+Command 'set -euo pipefail;  /home/201403848/anaconda3_new/envs/pypsa-eur/bin/python3.8 /home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/.snakemake/scripts/tmptteik7fq.data_postprocessing.py' returned non-zero exit status 1.
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/snakemake/executors/__init__.py", line 2319, in run_wrapper
+  File "/home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/Snakefile", line 70, in __rule_data_postprocess
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/snakemake/executors/__init__.py", line 568, in _callback
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/concurrent/futures/thread.py", line 57, in run
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/snakemake/executors/__init__.py", line 554, in cached_or_run
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/snakemake/executors/__init__.py", line 2350, in run_wrapper
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message

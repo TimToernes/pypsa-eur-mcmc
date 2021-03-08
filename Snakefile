@@ -65,6 +65,6 @@ rule data_postprocess:
         expand("inter_results/network_c{chain}_s{sample}.nc",chain=chains,sample=config['sampler']['samples'])
     output:
         'results/result.xlsx'
-    threads: 4
+    threads: 64
     script:
         'scripts/data_postprocessing.py'

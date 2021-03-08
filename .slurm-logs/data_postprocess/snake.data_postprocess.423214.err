@@ -1,0 +1,44 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 4
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	data_postprocess
+	1
+Select jobs to execute...
+
+[Thu Mar  4 09:23:49 2021]
+rule data_postprocess:
+    input: inter_results/network_c0_s921.nc, inter_results/network_c1_s921.nc, inter_results/network_c2_s921.nc, inter_results/network_c3_s921.nc, inter_results/network_c4_s921.nc, inter_results/network_c5_s921.nc, inter_results/network_c6_s921.nc, inter_results/network_c7_s921.nc
+    output: results/result.xlsx
+    jobid: 0
+    threads: 4
+
+/home/201403848/anaconda3_new/envs/pypsa-eur/bin/python3.8 /home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/.snakemake/scripts/tmph0l46f3w.data_postprocessing.py
+Traceback (most recent call last):
+  File "/home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/.snakemake/scripts/tmph0l46f3w.data_postprocessing.py", line 55, in <module>
+    network = pypsa.Network('inter_results/'+dir_lst[0])
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/pypsa/components.py", line 287, in __init__
+    self.import_from_csv_folder(import_name)
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/pypsa/io.py", line 393, in import_from_csv_folder
+    with ImporterCSV(csv_folder_name, encoding=encoding) as importer:
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/pypsa/io.py", line 74, in __init__
+    assert os.path.isdir(csv_folder_name), "Directory {} does not exist.".format(csv_folder_name)
+AssertionError: Directory inter_results/gurobi.log does not exist.
+[Thu Mar  4 09:23:53 2021]
+Error in rule data_postprocess:
+    jobid: 0
+    output: results/result.xlsx
+
+RuleException:
+CalledProcessError in line 70 of /home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/Snakefile:
+Command 'set -euo pipefail;  /home/201403848/anaconda3_new/envs/pypsa-eur/bin/python3.8 /home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/.snakemake/scripts/tmph0l46f3w.data_postprocessing.py' returned non-zero exit status 1.
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/snakemake/executors/__init__.py", line 2319, in run_wrapper
+  File "/home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/Snakefile", line 70, in __rule_data_postprocess
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/snakemake/executors/__init__.py", line 568, in _callback
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/concurrent/futures/thread.py", line 57, in run
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/snakemake/executors/__init__.py", line 554, in cached_or_run
+  File "/home/201403848/anaconda3_new/envs/pypsa-eur/lib/python3.8/site-packages/snakemake/executors/__init__.py", line 2350, in run_wrapper
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message

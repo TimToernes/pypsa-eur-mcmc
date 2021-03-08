@@ -1,0 +1,146 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 4
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	run_single_chain
+	1
+Select jobs to execute...
+
+[Thu Mar  4 07:41:58 2021]
+rule run_single_chain:
+    input: inter_results/network_c1_s801.nc, inter_results/sigma_s801.csv
+    output: inter_results/network_c1_s821.nc
+    jobid: 0
+    wildcards: chain=1, sample=821
+    threads: 4
+
+/home/201403848/anaconda3_new/envs/pypsa-eur/bin/python3.8 /home/201403848/pypsa-mcmc/NOBACKUP/pypsa-eur-mcmc/pypsa-eur-mcmc/.snakemake/scripts/tmp38vcujbs.mh_chain.py
+INFO:pypsa.io:Imported network network_c1_s801.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:numexpr.utils:Note: NumExpr detected 64 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 35.4s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.06e+11
+INFO:root:sample rejected
+INFO:pypsa.io:Imported network network_c1_s801.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Exported network network_c1_s802.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 29.18s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.01e+11
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s803.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 26.43s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.01e+11
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s804.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 14.9s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.01e+11
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s805.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 15.42s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.03e+11
+INFO:root:sample rejected
+INFO:pypsa.io:Imported network network_c1_s805.nc has buses, carriers, generators, global_constraints, lines, links, loads, storage_units, stores
+INFO:pypsa.io:Exported network network_c1_s806.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 11.13s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 9.89e+10
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s807.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 15.59s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 9.78e+10
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s808.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 15.98s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 9.79e+10
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s809.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 13.43s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.01e+11
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s810.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 19.74s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 9.71e+10
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s811.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 19.43s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 9.83e+10
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s812.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 20.96s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.01e+11
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s813.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 23.81s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 9.84e+10
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s814.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 19.39s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 9.78e+10
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s815.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 15.47s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.02e+11
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s816.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 15.91s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.00e+11
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s817.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 16.54s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.02e+11
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s818.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 24.6s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 1.01e+11
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s819.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 14.88s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 9.87e+10
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s820.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+INFO:pypsa.linopf:Prepare linear problem
+INFO:pypsa.linopf:Total preparation time: 8.34s
+INFO:pypsa.linopf:Solve linear problem using Gurobi solver
+INFO:pypsa.linopf:Optimization successful. Objective value: 9.91e+10
+INFO:root:sample accepted
+INFO:pypsa.io:Exported network network_c1_s821.nc has lines, links, global_constraints, carriers, generators, loads, buses, storage_units, stores
+[Thu Mar  4 08:00:33 2021]
+Finished job 0.
+1 of 1 steps (100%) done
