@@ -13,11 +13,12 @@ class solutions:
         self.sum_vars = self.calc_sum_vars(network)
         self.gen_p =    pd.DataFrame(data=[network.generators.p_nom_opt],index=[0])
         self.gen_E =    pd.DataFrame(data=[network.generators_t.p.sum()],index=[0])
-        self.store_p =  pd.DataFrame(data=[network.storage_units.p_nom_opt],index=[0])
-        self.store_E =  pd.DataFrame(data=[network.storage_units_t.p.sum()],index=[0])
+        self.storeage_unit_p =  pd.DataFrame(data=[network.storage_units.p_nom_opt],index=[0])
+        self.storeage_unit_E =  pd.DataFrame(data=[network.storage_units_t.p.sum()],index=[0])
+        self.store = pd.DataFrame(data=[network.stores.e_nom_opt],index=[0])
         self.links =    pd.DataFrame(data=[network.links.p_nom_opt],index=[0])
         self.lines =    pd.DataFrame(data=[network.lines.s_nom_opt],index=[0])
-        co2_emis = self.calc_co2_emis_pr_node(network)
+        co2_emis = pd.Series(self.get_country_emis(network))
         self.co2_pr_node = pd.DataFrame(columns=co2_emis.index,data=[co2_emis.values])
         self.secondary_metrics = self.calc_secondary_metrics(network)
         self.objective = pd.DataFrame()
@@ -33,8 +34,9 @@ class solutions:
 
         self.df_list = {'gen_p':self.gen_p,
                         'gen_E':self.gen_E,
-                        'store_E':self.store_E,
-                        'store_p':self.store_p,
+                        'storeage_unit_E':self.storeage_unit_E,
+                        'storeage_unit_p':self.storeage_unit_p,
+                        'store':self.store,
                         'links':self.links,
                         'lines':self.lines,
                         'co2_pr_node':self.co2_pr_node,
@@ -98,8 +100,9 @@ class solutions:
             part_res = self.queue.get(60)
             self.gen_E = self.gen_E.append(part_res.gen_E,ignore_index=True)
             self.gen_p = self.gen_p.append(part_res.gen_p,ignore_index=True)
-            self.store_E = self.store_E.append(part_res.store_E,ignore_index=True)
-            self.store_p = self.store_p.append(part_res.store_p,ignore_index=True)
+            self.storeage_unit_E = self.storeage_unit_E.append(part_res.storeage_unit_E,ignore_index=True)
+            self.storeage_unit_p = self.storeage_unit_p.append(part_res.storeage_unit_p,ignore_index=True)
+            self.store = self.store.append(part_res.store,ignore_index=True)
             self.links = self.links.append(part_res.links,ignore_index=True)
             self.lines = self.lines.append(part_res.lines,ignore_index=True)
             self.co2_pr_node = self.co2_pr_node.append(part_res.co2_pr_node,ignore_index=True)
@@ -117,8 +120,9 @@ class solutions:
         # Store all dataframes als excel file
         self.df_list = {'gen_p':self.gen_p,
                 'gen_E':self.gen_E,
-                'store_E':self.store_E,
-                'store_p':self.store_p,
+                'storeage_unit_E':self.storeage_unit_E,
+                'storeage_unit_p':self.storeage_unit_p,
+                'store':self.store,
                 'links':self.links,
                 'lines':self.lines,
                 'sum_vars':self.sum_vars,
@@ -134,8 +138,9 @@ class solutions:
     def save_csv(self, file_prefix='sol'):
         self.df_list = {'gen_p':self.gen_p,
                 'gen_E':self.gen_E,
-                'store_E':self.store_E,
-                'store_p':self.store_p,
+                'storeage_unit_E':self.storeage_unit_E,
+                'storeage_unit_p':self.storeage_unit_p,
+                'store':self.store,
                 'links':self.links,
                 'lines':self.lines,
                 'co2_pr_node':self.co2_pr_node,
@@ -217,6 +222,36 @@ class solutions:
         total_system_cost = network.objective
         return total_system_cost
 
+
+    def get_country_emis(self,network):
+
+        query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
+        id_co2_links = network.links.query(query_string('co2 atmosphere')).index
+
+        country_codes = network.links.loc[id_co2_links].location.unique()
+        country_emis = {code:0 for code in country_codes}
+
+        for country in country_codes:
+            idx = network.links.query(f'location == "{country}"').index
+            id0 = (network.links.loc[idx] == 'co2 atmosphere')['bus0']
+            country_emis[country] -= network.links_t.p0[idx[id0]].sum(axis=1).mul(network.snapshot_weightings).sum()
+            id1 = (network.links.loc[idx] == 'co2 atmosphere')['bus1']
+            country_emis[country] -= network.links_t.p1[idx[id1]].sum(axis=1).mul(network.snapshot_weightings).sum()
+            id2 = (network.links.loc[idx] == 'co2 atmosphere')['bus2']
+            country_emis[country] -= network.links_t.p2[idx[id2]].sum(axis=1).mul(network.snapshot_weightings).sum()
+            id3 = (network.links.loc[idx] == 'co2 atmosphere')['bus3']
+            country_emis[country] -= network.links_t.p3[idx[id3]].sum(axis=1).mul(network.snapshot_weightings).sum()
+            id4 = (network.links.loc[idx] == 'co2 atmosphere')['bus4']
+            country_emis[country] -= network.links_t.p4[idx[id4]].sum(axis=1).mul(network.snapshot_weightings).sum()
+
+            if country == 'EU':
+                id_load_co2 = network.loads.query('bus == "co2 atmosphere"').index
+                co2_load = network.loads.p_set[id_load_co2].sum().sum()*sum(network.snapshot_weightings)
+                country_emis[country] -= co2_load
+
+            total_emis = np.sum(list(country_emis.values())) 
+        
+        return country_emis
 
 
     def calc_co2_emis_pr_node(self,network):

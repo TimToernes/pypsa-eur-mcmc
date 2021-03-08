@@ -11,6 +11,21 @@ import queue # imported for using queue.Empty exception
 from itertools import product
 from functools import partial
 import time 
+
+
+
+override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
+override_component_attrs["Link"].loc["bus2"] = ["string",np.nan,np.nan,"2nd bus","Input (optional)"]
+override_component_attrs["Link"].loc["bus3"] = ["string",np.nan,np.nan,"3rd bus","Input (optional)"]
+override_component_attrs["Link"].loc["bus4"] = ["string",np.nan,np.nan,"4th bus","Input (optional)"]
+override_component_attrs["Link"].loc["efficiency2"] = ["static or series","per unit",1.,"2nd bus efficiency","Input (optional)"]
+override_component_attrs["Link"].loc["efficiency3"] = ["static or series","per unit",1.,"3rd bus efficiency","Input (optional)"]
+override_component_attrs["Link"].loc["efficiency4"] = ["static or series","per unit",1.,"4th bus efficiency","Input (optional)"]
+override_component_attrs["Link"].loc["p2"] = ["series","MW",0.,"2nd bus output","Output"]
+override_component_attrs["Link"].loc["p3"] = ["series","MW",0.,"3rd bus output","Output"]
+override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output","Output"]
+
+
 #%%
 
 def worker(q_in,sol,q_proc_done):
@@ -27,7 +42,7 @@ def worker(q_in,sol,q_proc_done):
             break
         else:
             if file[:7] == 'network':
-                network = pypsa.Network('inter_results/'+file)
+                network = pypsa.Network('inter_results/'+file,override_component_attrs=override_component_attrs)
                 sol.put(network)
                 del(network)
 
@@ -38,17 +53,17 @@ if __name__=='__main__':
         from _helpers import mock_snakemake
         try:
             snakemake = mock_snakemake('data_postprocess')
-            os.chdir('..')
+            #os.chdir('..')
         except :
             os.chdir('..')
             snakemake = mock_snakemake('data_postprocess')
             #os.chdir('..')
             
-    configure_logging(snakemake,skip_handlers=True)
+    #configure_logging(snakemake,skip_handlers=True)
 
 
     dir_lst = os.listdir('inter_results/')
-    network = pypsa.Network('inter_results/'+dir_lst[0])
+    network = pypsa.Network(snakemake.input[0],override_component_attrs=override_component_attrs)
     man = mp.Manager()
     sol = solutions(network, man)
     q_in = man.Queue()
