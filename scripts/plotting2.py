@@ -17,7 +17,7 @@ import scipy
 import matplotlib.pyplot as plt
 import seaborn as sns
 from _mcmc_helpers import *
-#os.chdir('..')
+os.chdir('..')
 
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})

@@ -118,7 +118,7 @@ def calc_pr(network,cost):
     # Calculate probability estimator, based on solution cost
     cost_0 = network.objective_optimum
     mga_constraint_fullfilment = (cost-cost_0)/cost_0/network.mga_slack
-    Pr = lambda c :(-2/(1+np.exp(-10*c+10))+2)
+    Pr = lambda c :(-1/(1+np.exp(-100*c+100))+1)
     pr_i = Pr(mga_constraint_fullfilment)
     return pr_i
 
