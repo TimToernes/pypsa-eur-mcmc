@@ -42,7 +42,7 @@ def worker(q_in,sol,q_proc_done):
             break
         else:
             if file[:7] == 'network':
-                network = pypsa.Network('inter_results/'+file,override_component_attrs=override_component_attrs)
+                network = pypsa.Network(f'inter_results/{snakemake.config["run_name"]}/'+file,override_component_attrs=override_component_attrs)
                 sol.put(network)
                 del(network)
 
@@ -62,7 +62,7 @@ if __name__=='__main__':
     #configure_logging(snakemake,skip_handlers=True)
 
 
-    dir_lst = os.listdir('inter_results/')
+    dir_lst = os.listdir(f'inter_results/{snakemake.config["run_name"]}/')
     network = pypsa.Network(snakemake.input[0],override_component_attrs=override_component_attrs)
     man = mp.Manager()
     sol = solutions(network, man)
@@ -88,6 +88,6 @@ if __name__=='__main__':
     sol.merge()
 
 
-    sol.save_csv('results/result_')
+    sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
     #sol.save_xlsx('results/result.xlsx')
 # %%

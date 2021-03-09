@@ -52,16 +52,80 @@ theta = pd.read_csv(f'results/{run_name}/theta.csv',index_col=0)
 theta.columns = [x for x in mcmc_variables+['s','c','a']]
 theta['id'] = theta.index
 
-
 emis_1990 = 1481895952.8
+
+df_pop = pd.read_csv('data/API_SP.POP.TOTL_DS2_en_csv_v2_2106202.csv',sep=',',index_col=0,skiprows=3)
+df_gdp = pd.read_csv('data/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2055594.csv',sep=',',index_col=0,skiprows=3)
+
 
 #%%#########################################
 ####### Data postprocessing ################
 ############################################
 
+opt_name = {"Store": "e", "Line" : "s", "Transformer" : "s"}
+label = 'test'
+nodal_costs = pd.Series()
+
+def calculate_nodal_costs(n,nodal_costs):
+    #Beware this also has extraneous locations for country (e.g. biomass) or continent-wide (e.g. fossil gas/oil) stuff
+    for c in n.iterate_components(n.branch_components|n.controllable_one_port_components^{"Load"}):
+        c.df["capital_costs"] = c.df.capital_cost*c.df[opt_name.get(c.name,"p") + "_nom_opt"]
+        capital_costs = c.df.groupby(["location","carrier"])["capital_costs"].sum()
+        index = pd.MultiIndex.from_tuples([(c.list_name,"capital") + t for t in capital_costs.index.to_list()])
+        nodal_costs = nodal_costs.reindex(index|nodal_costs.index)
+        nodal_costs.loc[index] = capital_costs.values
+
+        if c.name == "Link":
+            p = c.pnl.p0.multiply(n.snapshot_weightings,axis=0).sum()
+        elif c.name == "Line":
+            continue
+        elif c.name == "StorageUnit":
+            p_all = c.pnl.p.multiply(n.snapshot_weightings,axis=0)
+            p_all[p_all < 0.] = 0.
+            p = p_all.sum()
+        else:
+            p = c.pnl.p.multiply(n.snapshot_weightings,axis=0).sum()
+
+        #correct sequestration cost
+        if c.name == "Store":
+            items = c.df.index[(c.df.carrier == "co2 stored") & (c.df.marginal_cost <= -100.)]
+            c.df.loc[items,"marginal_cost"] = -20.
+
+        c.df["marginal_costs"] = p*c.df.marginal_cost
+        marginal_costs = c.df.groupby(["location","carrier"])["marginal_costs"].sum()
+        index = pd.MultiIndex.from_tuples([(c.list_name,"marginal") + t for t in marginal_costs.index.to_list()])
+        nodal_costs = nodal_costs.reindex(index|nodal_costs.index)
+        nodal_costs.loc[index] = marginal_costs.values
+
+    return nodal_costs
+
+
+def assign_locations(n):
+    for c in n.iterate_components(n.one_port_components|n.branch_components):
+
+        ifind = pd.Series(c.df.index.str.find(" ",start=4),c.df.index)
+
+        for i in ifind.unique():
+            names = ifind.index[ifind == i]
+
+            if i == -1:
+                c.df.loc[names,'location'] = ""
+            else:
+                c.df.loc[names,'location'] = names.str[:i]
+
+
+assign_locations(network)
+nodal_costs = calculate_nodal_costs(network,nodal_costs)
+
+
+#%%
+
 def set_link_locataions(network):
     network.links['location'] = ""
     network.generators['location'] = ""
+    network.lines['location'] = ""
+    network.stores['location'] = ""
+    network.storage_units['location']
 
     query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
     id_co2_links = network.links.query(query_string('co2 atmosphere')).index

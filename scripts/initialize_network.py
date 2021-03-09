@@ -9,6 +9,7 @@ that is saved
 """
 
 #%% imports
+from shutil import copyfile
 import sys
 import builtins 
 import pypsa
@@ -122,6 +123,9 @@ if __name__ == '__main__':
     #configure_logging(snakemake)
     builtins.snakemake = snakemake
 
+    # Copy config file to results folder 
+    copyfile('config.yaml',snakemake.output[-1])
+
     network = pypsa.Network(snakemake.input.network, 
                             override_component_attrs=override_component_attrs)
     network = set_link_locations(network)
@@ -132,12 +136,12 @@ if __name__ == '__main__':
     #mcmc_variables = calc_variables(network)
     mcmc_variables = network.buses.country.unique()
     mcmc_variables[np.where(mcmc_variables == '')] = 'EU'
-    network.mcmc_variables = "results/mcmc_variables.csv"
+    network.mcmc_variables = f"results/{snakemake.config['run_name']}/mcmc_variables.csv"
     write_csv(network.mcmc_variables,mcmc_variables)
 
     #sigma = np.identity(len(mcmc_variables))*float(snakemake.config['sampler']['eps'])
     sigma = np.ones(len(mcmc_variables))*float(snakemake.config['sampler']['eps'])
-    network.sigma = "inter_results/sigma_s1.csv"
+    network.sigma = f"inter_results/{snakemake.config['run_name']}/sigma_s1.csv"
     np.savetxt(network.sigma,sigma)
     
     #theta_base = calc_theta_base(network,co2_intensity=3)
@@ -170,7 +174,7 @@ if __name__ == '__main__':
     network.theta = theta_to_str(theta)
 
     # Save the starting point for each chain
-    for i,p in enumerate(snakemake.output[:-1]):
+    for i,p in enumerate(snakemake.output[:-2]):
 
         network.name = os.path.relpath(os.path.normpath(p))
         network.chain = i

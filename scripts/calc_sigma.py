@@ -54,7 +54,7 @@ def increment_sample(path,incr=1):
 
 
 
-def worker(q,thetas,mcmc_variables,co2_budget,q_proc_done):
+def worker(q,thetas,mcmc_variables,co2_budget,q_proc_done,snakemake):
     proc_name = mp.current_process().name
     while True:
         try:
@@ -68,7 +68,7 @@ def worker(q,thetas,mcmc_variables,co2_budget,q_proc_done):
             break
         else:
             if file[:7] == 'network':
-                network = pypsa.Network('inter_results/'+file,override_component_attrs=override_component_attrs)
+                network = pypsa.Network(f'inter_results/{snakemake.config["run_name"]}/'+file,override_component_attrs=override_component_attrs)
                 theta = {}
                 theta['s'] = network.sample
                 theta['c'] = network.chain
@@ -101,7 +101,7 @@ def schedule_workers(mcmc_variables,co2_budget):
 
     processes = []
     for i in range(snakemake.threads):
-        p = mp.Process(target=worker,args=(q,thetas_q,mcmc_variables,co2_budget,q_proc_done))
+        p = mp.Process(target=worker,args=(q,thetas_q,mcmc_variables,co2_budget,q_proc_done,snakemake))
         p.start()
         processes.append(p)
     
@@ -137,10 +137,10 @@ if __name__=='__main__':
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
-            snakemake = mock_snakemake('calc_sigma',sample=6)
+            snakemake = mock_snakemake('calc_sigma',sample=6,run_name='mcmc_2030')
         except :
             os.chdir('..')
-            snakemake = mock_snakemake('calc_sigma',sample=6)
+            snakemake = mock_snakemake('calc_sigma',sample=6,run_name='mcmc_2030')
     # Setup logging
     configure_logging(snakemake,skip_handlers=True)
 
@@ -154,12 +154,12 @@ if __name__=='__main__':
     co2_budget = snakemake.config['co2_budget']
     df_theta = schedule_workers(mcmc_variables,co2_budget)
 
-    if os.path.isfile('inter_results/theta.csv'):
-        df_theta_old = pd.read_csv('inter_results/theta.csv',
+    if os.path.isfile(f'inter_results/{snakemake.config["run_name"]}/theta.csv'):
+        df_theta_old = pd.read_csv(f'inter_results/{snakemake.config["run_name"]}/theta.csv',
                                     index_col=0)
         df_theta = pd.concat([df_theta,df_theta_old],ignore_index=True)
     
-    df_theta.to_csv('inter_results/theta.csv')
+    df_theta.to_csv(f'inter_results/{snakemake.config["run_name"]}/theta.csv')
 
     thetas = np.array(df_theta.iloc[:,0:34])
 
