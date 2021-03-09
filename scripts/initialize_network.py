@@ -119,7 +119,7 @@ if __name__ == '__main__':
             snakemake = mock_snakemake('initialize_networks')
             #os.chdir('..')
 
-    configure_logging(snakemake)
+    #configure_logging(snakemake)
     builtins.snakemake = snakemake
 
     network = pypsa.Network(snakemake.input.network, 
@@ -161,6 +161,11 @@ if __name__ == '__main__':
 
     co2_budget = snakemake.config['co2_budget']
     country_emis = get_country_emis(network)
+    try :
+        country_emis['EU']
+    except :
+        country_emis['EU'] = 0
+
     theta = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
     network.theta = theta_to_str(theta)
 
