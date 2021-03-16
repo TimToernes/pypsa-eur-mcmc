@@ -5,6 +5,7 @@
 *.pptx
 
 # Ignore intermediate results 
+data/networks/*
 inter_results/*
 tmp/*
 results/*
