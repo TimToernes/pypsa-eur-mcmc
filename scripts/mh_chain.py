@@ -217,8 +217,8 @@ def sample(network):
     co2_alocations = co2_budget*theta_proposed
     co2_alocations ={v:t for v,t in zip(mcmc_variables,co2_alocations)}
 
-    if not all([allowable_emis[key]>=co2_alocations[key]-1e-3 for key in allowable_emis.keys()]):
-        print('theta does not satisfy 150% co2 constraint')
+    #if not all([allowable_emis[key]>=co2_alocations[key]-1e-3 for key in allowable_emis.keys()]):
+    #    print('theta does not satisfy 150% co2 constraint')
 
     snakemake.config['use_local_co2_constraints'] = True
     snakemake.config['local_emission_constraints'] = co2_alocations
@@ -237,11 +237,11 @@ if __name__=='__main__':
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
-            snakemake = mock_snakemake('run_single_chain',chain=0,sample=6,run_name='mcmc_2030')
-            os.chdir('..')
+            snakemake = mock_snakemake('run_single_chain',chain=0,sample=101,run_name='mcmc_2030')
+            #os.chdir('..')
         except :
             os.chdir('..')
-            snakemake = mock_snakemake('run_single_chain',chain=0,sample=6,run_name='mcmc_2030')
+            snakemake = mock_snakemake('run_single_chain',chain=0,sample=101,run_name='mcmc_2030')
 
     import builtins 
     builtins.snakemake = snakemake
