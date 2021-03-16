@@ -15,6 +15,8 @@ from functools import partial
 import time 
 import scipy
 import matplotlib.pyplot as plt
+import matplotlib
+#matplotlib.interactive(False)
 import seaborn as sns
 from _mcmc_helpers import *
 os.chdir('..')
@@ -34,26 +36,48 @@ override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output",
 
 # %% import datasets 
 
-run_name = 'h100_model'
-#run_name = 'h99_model'
-network = pypsa.Network(f'results/{run_name}/network_c0_s1.nc',override_component_attrs=override_component_attrs)
-mcmc_variables = read_csv(network.mcmc_variables)
+
+
+
+network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p50-3H-H-solar+p3-dist1_2030.nc')
+
+years = [2030,2040,2050]
+
+emis_1990 =   1481895952.8
+emis_1990_H = 2206933437.8055553
+
+
+df_names = dict(df_sum='result_sum_vars.csv',
+                df_secondary='result_secondary_metrics.csv',
+                df_gen_p='result_gen_p.csv',
+                df_gen_e='result_gen_E.csv',
+                df_co2='result_co2_pr_node.csv',
+                df_chain='result_chain.csv',
+                df_links='result_links.csv',
+                df_store='result_store.csv',
+                df_theta='theta.csv'
+                )
+dfs = {}
+networks = {}
+
+for year in years:
+    run_name = f'mcmc_{year}_H'
+    #run_name = 'h99_model'
+    networks[year] = pypsa.Network(f'results/{run_name}/network_c0_s1.nc',override_component_attrs=override_component_attrs)
+
+    for df_name in df_names.keys():
+        df = pd.read_csv(f'results/{run_name}/'+df_names[df_name],index_col=0)
+        df['year'] = year
+        try :
+            dfs[df_name] = pd.concat((dfs[df_name],df))
+            vars()[df_name] = dfs[df_name]
+        except : 
+            dfs[df_name] = df
+
+network = networks[years[0]]
+mcmc_variables = read_csv(networks[year].mcmc_variables)
 mcmc_variables = [row[0]+row[1] for row in mcmc_variables]
-df_secondary = pd.read_csv(f'results/{run_name}/result_secondary_metrics.csv',index_col=0)
-df_sum = pd.read_csv(f'results/{run_name}/result_sum_vars.csv',index_col=0)
-df_gen_p = pd.read_csv(f'results/{run_name}/result_gen_p.csv',index_col=0)
-df_co2 = pd.read_csv(f'results/{run_name}/result_co2_pr_node.csv',index_col=0)
-df_chain = pd.read_csv(f'results/{run_name}/result_chain.csv',index_col=0)
-df_links = pd.read_csv(f'results/{run_name}/result_links.csv',index_col=0)
-df_co2 = pd.read_csv(f'results/{run_name}/result_co2_pr_node.csv',index_col=0)
-df_store = pd.read_csv(f'results/{run_name}/result_store_p.csv',index_col=0)
-
-theta = pd.read_csv(f'results/{run_name}/theta.csv',index_col=0)
-theta.columns = [x for x in mcmc_variables+['s','c','a']]
-theta['id'] = theta.index
-
-emis_1990 = 1481895952.8
-
+                
 df_pop = pd.read_csv('data/API_SP.POP.TOTL_DS2_en_csv_v2_2106202.csv',sep=',',index_col=0,skiprows=3)
 df_gdp = pd.read_csv('data/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2055594.csv',sep=',',index_col=0,skiprows=3)
 
@@ -62,70 +86,14 @@ df_gdp = pd.read_csv('data/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2055594.csv',sep=','
 ####### Data postprocessing ################
 ############################################
 
-opt_name = {"Store": "e", "Line" : "s", "Transformer" : "s"}
-label = 'test'
-nodal_costs = pd.Series()
-
-def calculate_nodal_costs(n,nodal_costs):
-    #Beware this also has extraneous locations for country (e.g. biomass) or continent-wide (e.g. fossil gas/oil) stuff
-    for c in n.iterate_components(n.branch_components|n.controllable_one_port_components^{"Load"}):
-        c.df["capital_costs"] = c.df.capital_cost*c.df[opt_name.get(c.name,"p") + "_nom_opt"]
-        capital_costs = c.df.groupby(["location","carrier"])["capital_costs"].sum()
-        index = pd.MultiIndex.from_tuples([(c.list_name,"capital") + t for t in capital_costs.index.to_list()])
-        nodal_costs = nodal_costs.reindex(index|nodal_costs.index)
-        nodal_costs.loc[index] = capital_costs.values
-
-        if c.name == "Link":
-            p = c.pnl.p0.multiply(n.snapshot_weightings,axis=0).sum()
-        elif c.name == "Line":
-            continue
-        elif c.name == "StorageUnit":
-            p_all = c.pnl.p.multiply(n.snapshot_weightings,axis=0)
-            p_all[p_all < 0.] = 0.
-            p = p_all.sum()
-        else:
-            p = c.pnl.p.multiply(n.snapshot_weightings,axis=0).sum()
-
-        #correct sequestration cost
-        if c.name == "Store":
-            items = c.df.index[(c.df.carrier == "co2 stored") & (c.df.marginal_cost <= -100.)]
-            c.df.loc[items,"marginal_cost"] = -20.
-
-        c.df["marginal_costs"] = p*c.df.marginal_cost
-        marginal_costs = c.df.groupby(["location","carrier"])["marginal_costs"].sum()
-        index = pd.MultiIndex.from_tuples([(c.list_name,"marginal") + t for t in marginal_costs.index.to_list()])
-        nodal_costs = nodal_costs.reindex(index|nodal_costs.index)
-        nodal_costs.loc[index] = marginal_costs.values
-
-    return nodal_costs
-
-
-def assign_locations(n):
-    for c in n.iterate_components(n.one_port_components|n.branch_components):
-
-        ifind = pd.Series(c.df.index.str.find(" ",start=4),c.df.index)
-
-        for i in ifind.unique():
-            names = ifind.index[ifind == i]
-
-            if i == -1:
-                c.df.loc[names,'location'] = ""
-            else:
-                c.df.loc[names,'location'] = names.str[:i]
-
-
-assign_locations(network)
-nodal_costs = calculate_nodal_costs(network,nodal_costs)
-
-
-#%%
+df_theta.columns = [x for x in mcmc_variables+['s','c','a','year']]
 
 def set_link_locataions(network):
     network.links['location'] = ""
     network.generators['location'] = ""
     network.lines['location'] = ""
     network.stores['location'] = ""
-    network.storage_units['location']
+    #network.storage_units['location']
 
     query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
     id_co2_links = network.links.query(query_string('co2 atmosphere')).index
@@ -158,7 +126,7 @@ def set_link_locataions(network):
 
 cost_increase = (df_secondary.system_cost-network.objective_optimum)/network.objective_optimum*100
 
-base_emis = emis_1990
+base_emis = emis_1990_H
 
 df_secondary['cost_increase'] = cost_increase
 df_secondary['co2_reduction'] = 100 - df_co2.sum(axis=1)/base_emis * 100
@@ -169,10 +137,15 @@ network = set_link_locataions(network)
 idx = network.links.query('location != "EU" & location != ""').index
 df_link_sum = df_links[idx].groupby(network.links.carrier,axis=1).sum()
 
-df_gen_sum = df_gen_p.groupby(network.generators.carrier,axis=1).sum()
+stores_carrier = pd.concat((networks[2030].stores.carrier,networks[2040].stores.carrier,networks[2050].stores.carrier))
+stores_carrier = stores_carrier[~stores_carrier.index.duplicated()]
+df_store_sum = df_store.groupby(stores_carrier,axis=1).sum()
+df_store_sum.columns = [c + '_store' for c in df_store_sum.columns]
+#df_gen_sum = df_gen_p.groupby(network.generators.carrier,axis=1).sum()
+df_gen_sum = df_sum
 #df_gen_sum.pop('oil')
 
-df_tech_sum = pd.concat([df_link_sum,df_gen_sum],axis=1)
+df_tech_sum = pd.concat([df_link_sum,df_gen_sum,df_store_sum],axis=1)
 df_tech_sum['wind'] = df_tech_sum[['offwind','offwind-ac','offwind-dc','onwind']].sum(axis=1)
 
 
@@ -190,13 +163,13 @@ filt_co2_150p = (df_co2_contry<alowable_emis_pr_country).all(axis=1)
 
 # create a filter for minimum backup capacity
 
-df_ocgt = df_gen_p.loc[:,network.generators.carrier=='OCGT']
-ocgt_pr_country = df_ocgt.groupby(network.generators.bus,axis=1).sum().groupby(network.buses.country,axis=1).sum()
-country_max_load = network.loads_t.p.max().groupby(network.buses.country).sum()
-filt_backup = (ocgt_pr_country>0.5*country_max_load).all(axis=1)
+#df_ocgt = df_gen_p.loc[:,network.generators.carrier=='OCGT']
+#ocgt_pr_country = df_ocgt.groupby(network.generators.bus,axis=1).sum().groupby(network.buses.country,axis=1).sum()
+#country_max_load = network.loads_t.p.max().groupby(network.buses.country).sum()
+#filt_backup = (ocgt_pr_country>0.5*country_max_load).all(axis=1)
 
 # filter for 10% cost increase 
-filt_cost = df_secondary['cost_increase'] < 10
+#filt_cost = df_secondary['cost_increase'] < 10
 
 
 #%%##########################################
@@ -204,38 +177,49 @@ filt_cost = df_secondary['cost_increase'] < 10
 # ###########################################
 # Corrolelogram cost vs co2 
 
-df = df_secondary[['cost_increase']]
-df['co2_reduction'] = 100 - df_co2.sum(axis=1)/base_emis * 100
+run_name = '2030-2050'
 
-df['filt_cost'] = filt_cost
+df = df_secondary[['system_cost']]
+df['co2 reduction'] = (1-df_co2.sum(axis=1)/base_emis)*100
+df['year'] = df_co2['year']
 
-sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='filt_cost')
+#df['filt_cost'] = filt_cost
+
+sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',plot_kws=dict(bins=40),palette='Set1')
 #plt.suptitle('Scenarios with less than 150% local emisons compared to 100% coal production')
 #plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
 
 sns_plot.savefig(f'graphics/cost_co2_{run_name}.jpeg')
 fig = sns_plot.fig
-fig.show()
+#fig.show()
 
 #%% Corrolelogram tech
 
 #df = df_sum[['OCGT', 'offwind-ac', 'offwind-dc', 'onwind', 'solar', 'transmission', 'H2', 'battery',]]
-df = df_tech_sum[['OCGT','H2 Electrolysis','SMR','solar','wind','gas']]
+df = df_tech_sum[['wind','year','battery_store']]
+df['OCGT + CCGT'] = df_tech_sum['OCGT']+df_tech_sum['CCGT']
+df['solar'] = df_tech_sum['solar'] + df_tech_sum['solar rooftop']
+df['H2'] = df_tech_sum['H2 Fuel Cell'] +  df_tech_sum['H2 Electrolysis'] + df_tech_sum['H2_store']
 #df = df[df_chain.s>200]
 #df['co2<150p'] = filt_co2_150p
 #df['10p_backup'] = filt_backup
 #df['c'] = df_chain.c
 #df = df[df_secondary.co2_reduction>50]
 #df['c'] = theta.c
-df['filt_cost'] = filt_cost
+#df['filt_cost'] = filt_cost
 
- 
+#df = df.sample(10000)
 # without regression
-sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='filt_cost')
+sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',
+                        plot_kws=dict(bins=30),
+                        diag_kws=dict(bins=40),
+                        palette='Set1')
+
 #plt.suptitle('Scenarios with less than 150% local emisons compared to 100% coal production')
 #plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
 
-#sns_plot.savefig(f'graphics/tech_{run_name}.jpeg')
+sns_plot.savefig(f'graphics/tech_{run_name}.jpeg')
+
 fig = sns_plot.fig
 fig.show()
 
@@ -246,20 +230,24 @@ df_secondary['transmission'] = df_sum['transmission']
 #df = sns.load_dataset('iris')
 df = df_secondary[['cost_increase','gini_co2','gini',]]
 df['co2_reduction'] = df['co2_reduction'] = 100 - df_co2.sum(axis=1)/base_emis * 100
+df['year'] = df_secondary['year']
 #df = df[df_secondary.cost_increase<7]
 #df = df[df_secondary.co2_reduction>50]
 #df['co2<150p'] = filt_co2_150p
 #df['10p_backup'] = filt_backup
 #df['c'] = theta.c
-df['filt_cost'] = filt_cost
+#df['filt_cost'] = filt_cost
 
 
 
-sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='filt_cost')
+sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',
+                                            plot_kws=dict(bins=30),
+                                            diag_kws=dict(bins=40),
+                                            palette='Set1')
 #plt.suptitle('Scenarios with less than 150% emisons compared to 100% coal production')
 #plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
 
-#sns_plot.savefig(f'graphics/secondary_{run_name}.jpeg')
+sns_plot.savefig(f'graphics/secondary_{run_name}.jpeg')
 sns_plot.fig.show()
 
 #%% Plot of chain development over time 
@@ -286,13 +274,20 @@ sns.relplot(
 
 #%% plot of co2 emis 
 
-df = df_co2[['DE','DK','FR','ES','PL']]
+#df = df_co2[['DE','DK','FR','PL','ES']]
+#df['year'] = df_co2['year']
 
-df['filt_cost'] = filt_cost
+df = df_co2[['AT','DE','DK','ES','FR','GB','IT','PL','year']]
+#df = df.sample(100)
 
+df_long = df.melt(id_vars=['year'],var_name='country',value_name='CO2 emission')
 
-sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='filt_cost')
-plt.suptitle('CO2 emissions pr country [T CO2]')
+#sns.set_palette('Paired')
+sns_plot = sns.displot(df_long,x='CO2 emission',hue='country',row='year',bins=100,palette='cubehelix')
+plt.ylim(0,1000)
+
+#df['filt_cost'] = filt_cost
+
 
 #sns_plot.map_lower(sns.regplot)
 #sns_plot.savefig('test2.pdf')
@@ -302,7 +297,7 @@ sns_plot.fig.show()
 
 #%% plot of thetas 
 
-df = theta[['DK','DE','FR','PL']]
+df = df_theta[['DK','DE','FR','PL','year']]
 
 sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist')#,hue='10p_backup')
 plt.suptitle('CO2 emissions pr country [T CO2]')
@@ -423,4 +418,120 @@ fig.update_layout(
 
 
 fig.show()
+# %%
+
+
+
+
+def nodal_costs(network):
+
+    def calculate_nodal_costs(n,nodal_costs):
+        #Beware this also has extraneous locations for country (e.g. biomass) or continent-wide (e.g. fossil gas/oil) stuff
+        for c in n.iterate_components(n.branch_components|n.controllable_one_port_components^{"Load"}):
+            c.df["capital_costs"] = c.df.capital_cost*c.df[opt_name.get(c.name,"p") + "_nom_opt"]
+            capital_costs = c.df.groupby(["location","carrier"])["capital_costs"].sum()
+            index = pd.MultiIndex.from_tuples([(c.list_name,"capital") + t for t in capital_costs.index.to_list()])
+            nodal_costs = nodal_costs.reindex(index|nodal_costs.index)
+            nodal_costs.loc[index] = capital_costs.values
+
+            if c.name == "Link":
+                p = c.pnl.p0.multiply(n.snapshot_weightings,axis=0).sum()
+            elif c.name == "Line":
+                continue
+            elif c.name == "StorageUnit":
+                p_all = c.pnl.p.multiply(n.snapshot_weightings,axis=0)
+                p_all[p_all < 0.] = 0.
+                p = p_all.sum()
+            else:
+                p = c.pnl.p.multiply(n.snapshot_weightings,axis=0).sum()
+
+            #correct sequestration cost
+            if c.name == "Store":
+                items = c.df.index[(c.df.carrier == "co2 stored") & (c.df.marginal_cost <= -100.)]
+                c.df.loc[items,"marginal_cost"] = -20.
+
+            c.df["marginal_costs"] = p*c.df.marginal_cost
+            marginal_costs = c.df.groupby(["location","carrier"])["marginal_costs"].sum()
+            index = pd.MultiIndex.from_tuples([(c.list_name,"marginal") + t for t in marginal_costs.index.to_list()])
+            nodal_costs = nodal_costs.reindex(index|nodal_costs.index)
+            nodal_costs.loc[index] = marginal_costs.values
+
+        return nodal_costs
+
+
+    def assign_locations(n):
+        for c in n.iterate_components(n.one_port_components|n.branch_components):
+
+            ifind = pd.Series(c.df.index.str.find(" ",start=4),c.df.index)
+
+            for i in ifind.unique():
+                names = ifind.index[ifind == i]
+
+                if i == -1:
+                    c.df.loc[names,'location'] = ""
+                else:
+                    c.df.loc[names,'location'] = names.str[:i]
+
+
+
+
+    opt_name = {"Store": "e", "Line" : "s", "Transformer" : "s"}
+    label = 'test'
+    nodal_costs = pd.Series()
+
+    assign_locations(network)
+    nodal_costs = calculate_nodal_costs(network,nodal_costs)
+
+    return nodal_costs 
+
+# %%
+
+
+
+def calculate_costs(n,label,costs):
+
+    for c in n.iterate_components(n.branch_components|n.controllable_one_port_components^{"Load"}):
+        capital_costs = c.df.capital_cost*c.df[opt_name.get(c.name,"p") + "_nom_opt"]
+        capital_costs_grouped = capital_costs.groupby(c.df.carrier).sum()
+
+        capital_costs_grouped = pd.concat([capital_costs_grouped], keys=["capital"])
+        capital_costs_grouped = pd.concat([capital_costs_grouped], keys=[c.list_name])
+
+        costs = costs.reindex(capital_costs_grouped.index|costs.index)
+
+        costs.loc[capital_costs_grouped.index] = capital_costs_grouped
+
+        if c.name == "Link":
+            p = c.pnl.p0.multiply(n.snapshot_weightings,axis=0).sum()
+        elif c.name == "Line":
+            continue
+        elif c.name == "StorageUnit":
+            p_all = c.pnl.p.multiply(n.snapshot_weightings,axis=0)
+            p_all[p_all < 0.] = 0.
+            p = p_all.sum()
+        else:
+            p = c.pnl.p.multiply(n.snapshot_weightings,axis=0).sum()
+
+        #correct sequestration cost
+        if c.name == "Store":
+            items = c.df.index[(c.df.carrier == "co2 stored") & (c.df.marginal_cost <= -100.)]
+            c.df.loc[items,"marginal_cost"] = -20.
+
+        marginal_costs = p*c.df.marginal_cost
+
+        marginal_costs_grouped = marginal_costs.groupby(c.df.carrier).sum()
+
+        marginal_costs_grouped = pd.concat([marginal_costs_grouped], keys=["marginal"])
+        marginal_costs_grouped = pd.concat([marginal_costs_grouped], keys=[c.list_name])
+
+        costs = costs.reindex(marginal_costs_grouped.index|costs.index)
+
+        costs.loc[marginal_costs_grouped.index] = marginal_costs_grouped
+
+    #add back in all hydro
+    #costs.loc[("storage_units","capital","hydro"),label] = (0.01)*2e6*n.storage_units.loc[n.storage_units.group=="hydro","p_nom"].sum()
+    #costs.loc[("storage_units","capital","PHS"),label] = (0.01)*2e6*n.storage_units.loc[n.storage_units.group=="PHS","p_nom"].sum()
+    #costs.loc[("generators","capital","ror"),label] = (0.02)*3e6*n.generators.loc[n.generators.group=="ror","p_nom"].sum()
+
+    return costs
 # %%

@@ -1,0 +1,112 @@
+
+logging:
+  level: INFO
+  format: '%(levelname)s:%(name)s:%(message)s'
+
+run_name: 'mcmc_2040'
+network: 'data/networks/elec_s_37_lv1.5__Co2L0p50-3H-solar+p3-dist1_2040.nc'
+tmpdir: './tmp/'
+
+
+mga_slack: 0.1
+mcmc_variables: 'all' # 'all' selects all 
+co2_budget: 333426589.38 #1481895952.8  #CO2 budget from pypsa-eur-sec for elelctricity only  #38750000 
+conventional_backup: 0.5 # minimum 50% backup capacity from conventional power plants 
+
+
+sampler:
+  chains: 8
+  samples: 901 # has to be a multiple of batch + 1
+  eps: 0.02
+  batch: 100
+
+
+solver:
+  solver_name: 'gurobi'
+  formulation: 'kirchhoff'
+  pyomo: false
+  keep_shadowprices: true
+  solver_options:
+    threads: 4
+    method: 2 # barrier
+    crossover: 0
+    BarConvTol: 1.e-5
+    FeasibilityTol: 1.e-6
+    AggFill: 0
+    PreDual: 0
+    GURO_PAR_BARDENSETHRESH: 200
+
+
+planning_horizons : 2040
+foresight: 'myopic'
+
+use_local_co2_constraints: false
+local_emission_constraints: 
+  'EU': 3000000 
+  'AL': 1000
+  'AT': 1000
+  'BA': 1000
+  'BE': 1000
+  'BG': 1000
+  'CH': 1000
+  'CZ': 1000
+  'DE': 1000
+  'DK': 1000
+  'EE': 1000
+  'ES': 1000
+  'FI': 1000
+  'FR': 1000
+  'GB': 1000
+  'GR': 1000
+  'HR': 1000
+  'HU': 1000
+  'IE': 1000
+  'IT': 1000
+  'LT': 1000
+  'LU': 1000
+  'LV': 1000
+  'ME': 1000
+  'MK': 1000
+  'NL': 1000
+  'NO': 1000
+  'PL': 1000
+  'PT': 1000
+  'RO': 1000
+  'RS': 1000
+  'SE': 1000
+  'SI': 1000
+  'SK': 1000
+
+solving:
+  tmpdir: './tmp/'
+  options:
+    formulation: kirchhoff
+    clip_p_max_pu: 1.e-2
+    load_shedding: false
+    noisy_costs: true
+
+    min_iterations: 1
+    max_iterations: 1
+    nhours: 100
+
+  solver:
+    name: gurobi
+    threads: 4
+    method: 2 # barrier
+    crossover: 0
+    BarConvTol: 1.e-5
+    Seed: 123
+    AggFill: 0
+    PreDual: 0
+    GURO_PAR_BARDENSETHRESH: 200
+    #FeasibilityTol: 1.e-6
+
+    #name: cplex
+    #threads: 4
+    #lpmethod: 4 # barrier
+    #solutiontype: 2 # non basic solution, ie no crossover
+    #barrier_convergetol: 1.e-5
+    #feasopt_tolerance: 1.e-6
+  mem: 30000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+
+###########################################

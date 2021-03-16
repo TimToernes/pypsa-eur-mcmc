@@ -11,15 +11,28 @@ class solutions:
     def __init__(self,network,manager=None):
         self.old_objective = network.objective
         self.sum_vars = self.calc_sum_vars(network)
+
         self.gen_p =    pd.DataFrame(data=[network.generators.p_nom_opt],index=[0])
         self.gen_E =    pd.DataFrame(data=[network.generators_t.p.sum()],index=[0])
+
         self.storeage_unit_p =  pd.DataFrame(data=[network.storage_units.p_nom_opt],index=[0])
         self.storeage_unit_E =  pd.DataFrame(data=[network.storage_units_t.p.sum()],index=[0])
-        self.store = pd.DataFrame(data=[network.stores.e_nom_opt],index=[0])
+
+        self.store_p = pd.DataFrame(data=[network.stores.e_nom_opt],index=[0])
+        self.store_E = pd.DataFrame(data=[network.stores_t.p.sum()],index=[0])
+
         self.links =    pd.DataFrame(data=[network.links.p_nom_opt],index=[0])
         self.lines =    pd.DataFrame(data=[network.lines.s_nom_opt],index=[0])
-        co2_emis = pd.Series(self.get_country_emis(network))
-        self.co2_pr_node = pd.DataFrame(columns=co2_emis.index,data=[co2_emis.values])
+
+        try : 
+            co2_emis = pd.Series(self.get_country_emis(network))
+            self.co2_pr_node = pd.DataFrame(columns=co2_emis.index,data=[co2_emis.values])
+        except : 
+            self.co2_pr_node = pd.DataFrame()
+
+        nodal_costs = self.calc_nodal_costs(network)
+        self.nodal_costs = pd.DataFrame(columns=nodal_costs.index,data=[nodal_costs.values])
+
         self.secondary_metrics = self.calc_secondary_metrics(network)
         self.objective = pd.DataFrame()
         try :
@@ -36,7 +49,8 @@ class solutions:
                         'gen_E':self.gen_E,
                         'storeage_unit_E':self.storeage_unit_E,
                         'storeage_unit_p':self.storeage_unit_p,
-                        'store':self.store,
+                        'store_E':self.store_E,
+                        'store_p':self.store_p,
                         'links':self.links,
                         'lines':self.lines,
                         'co2_pr_node':self.co2_pr_node,
@@ -102,7 +116,8 @@ class solutions:
             self.gen_p = self.gen_p.append(part_res.gen_p,ignore_index=True)
             self.storeage_unit_E = self.storeage_unit_E.append(part_res.storeage_unit_E,ignore_index=True)
             self.storeage_unit_p = self.storeage_unit_p.append(part_res.storeage_unit_p,ignore_index=True)
-            self.store = self.store.append(part_res.store,ignore_index=True)
+            self.store_p = self.store_p.append(part_res.store_p,ignore_index=True)
+            self.store_E = self.store_E.append(part_res.store_E,ignore_index=True)
             self.links = self.links.append(part_res.links,ignore_index=True)
             self.lines = self.lines.append(part_res.lines,ignore_index=True)
             self.co2_pr_node = self.co2_pr_node.append(part_res.co2_pr_node,ignore_index=True)
@@ -137,15 +152,16 @@ class solutions:
 
     def save_csv(self, file_prefix='sol'):
         self.df_list = {'gen_p':self.gen_p,
-                'gen_E':self.gen_E,
-                'storeage_unit_E':self.storeage_unit_E,
-                'storeage_unit_p':self.storeage_unit_p,
-                'store':self.store,
-                'links':self.links,
-                'lines':self.lines,
-                'co2_pr_node':self.co2_pr_node,
-                'sum_vars':self.sum_vars,
-                'secondary_metrics':self.secondary_metrics}
+                        'gen_E':self.gen_E,
+                        'storeage_unit_E':self.storeage_unit_E,
+                        'storeage_unit_p':self.storeage_unit_p,
+                        'store_E':self.store_E,
+                        'store_p':self.store_p,
+                        'links':self.links,
+                        'lines':self.lines,
+                        'co2_pr_node':self.co2_pr_node,
+                        'sum_vars':self.sum_vars,
+                        'secondary_metrics':self.secondary_metrics}
         try : 
             self.df_chain
         except : 
@@ -302,6 +318,69 @@ class solutions:
 
         gini = 1- 2*lorenz_integral
         return gini
+
+
+
+    def calc_nodal_costs(self,network):
+
+        def _calculate_nodal_costs(n,nodal_costs):
+            #Beware this also has extraneous locations for country (e.g. biomass) or continent-wide (e.g. fossil gas/oil) stuff
+            for c in n.iterate_components(n.branch_components|n.controllable_one_port_components^{"Load"}):
+                c.df["capital_costs"] = c.df.capital_cost*c.df[opt_name.get(c.name,"p") + "_nom_opt"]
+                capital_costs = c.df.groupby(["location","carrier"])["capital_costs"].sum()
+                index = pd.MultiIndex.from_tuples([(c.list_name,"capital") + t for t in capital_costs.index.to_list()])
+                nodal_costs = nodal_costs.reindex(index|nodal_costs.index)
+                nodal_costs.loc[index] = capital_costs.values
+
+                if c.name == "Link":
+                    p = c.pnl.p0.multiply(n.snapshot_weightings,axis=0).sum()
+                elif c.name == "Line":
+                    continue
+                elif c.name == "StorageUnit":
+                    p_all = c.pnl.p.multiply(n.snapshot_weightings,axis=0)
+                    p_all[p_all < 0.] = 0.
+                    p = p_all.sum()
+                else:
+                    p = c.pnl.p.multiply(n.snapshot_weightings,axis=0).sum()
+
+                #correct sequestration cost
+                if c.name == "Store":
+                    items = c.df.index[(c.df.carrier == "co2 stored") & (c.df.marginal_cost <= -100.)]
+                    c.df.loc[items,"marginal_cost"] = -20.
+
+                c.df["marginal_costs"] = p*c.df.marginal_cost
+                marginal_costs = c.df.groupby(["location","carrier"])["marginal_costs"].sum()
+                index = pd.MultiIndex.from_tuples([(c.list_name,"marginal") + t for t in marginal_costs.index.to_list()])
+                nodal_costs = nodal_costs.reindex(index|nodal_costs.index)
+                nodal_costs.loc[index] = marginal_costs.values
+
+            return nodal_costs
+
+
+        def assign_locations(n):
+            for c in n.iterate_components(n.one_port_components|n.branch_components):
+
+                ifind = pd.Series(c.df.index.str.find(" ",start=4),c.df.index)
+
+                for i in ifind.unique():
+                    names = ifind.index[ifind == i]
+
+                    if i == -1:
+                        c.df.loc[names,'location'] = ""
+                    else:
+                        c.df.loc[names,'location'] = names.str[:i]
+
+
+
+
+        opt_name = {"Store": "e", "Line" : "s", "Transformer" : "s"}
+        label = 'test'
+        nodal_costs = pd.Series()
+
+        assign_locations(network)
+        nodal_costs = _calculate_nodal_costs(network,nodal_costs)
+
+        return nodal_costs 
 
 
 # %%

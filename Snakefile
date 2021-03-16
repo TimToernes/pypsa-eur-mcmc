@@ -67,3 +67,7 @@ rule data_postprocess:
     threads: 64
     script:
         'scripts/data_postprocessing.py'
+
+rule speed_test:
+    threads: 4
+    script: 'scripts/solve_speed_test.py'
