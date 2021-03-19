@@ -2,20 +2,20 @@
 #from scripts.initialize_network import set_link_locations
 import pypsa
 import os 
-import csv
+#import csv
 import numpy as np 
 import pandas as pd 
-import re 
-from _helpers import configure_logging
-from solutions import solutions
+#import re 
+#from _helpers import configure_logging
+#from solutions import solutions
 import multiprocessing as mp
-import queue # imported for using queue.Empty exception
-from itertools import product
-from functools import partial
-import time 
-import scipy
+#import queue # imported for using queue.Empty exception
+#from itertools import product
+#from functools import partial
+#import time 
+#import scipy
 import matplotlib.pyplot as plt
-import matplotlib
+#import matplotlib
 #matplotlib.interactive(False)
 import seaborn as sns
 from _mcmc_helpers import *
@@ -39,9 +39,15 @@ override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output",
 
 
 
-network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p50-3H-H-solar+p3-dist1_2030.nc')
+network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p50-3H-H-solar+p3-dist1_2030.nc',
+                        override_component_attrs=override_component_attrs)
 
 years = [2030,2040,2050]
+
+# El 1510 MT
+# Heat 723 MT
+# Transport 784 MT
+
 
 emis_1990 =   1481895952.8
 emis_1990_H = 2206933437.8055553
@@ -57,6 +63,17 @@ df_names = dict(df_sum='result_sum_vars.csv',
                 df_store='result_store.csv',
                 df_theta='theta.csv'
                 )
+
+df_sum=pd.DataFrame()
+df_secondary=pd.DataFrame()
+df_gen_p=pd.DataFrame()
+df_gen_e=pd.DataFrame()
+df_co2=pd.DataFrame()
+df_chain=pd.DataFrame()
+df_links=pd.DataFrame()
+df_store=pd.DataFrame()
+df_theta=pd.DataFrame()
+
 dfs = {}
 networks = {}
 
@@ -73,6 +90,7 @@ for year in years:
             vars()[df_name] = dfs[df_name]
         except : 
             dfs[df_name] = df
+            vars()[df_name] = dfs[df_name]
 
 network = networks[years[0]]
 mcmc_variables = read_csv(networks[year].mcmc_variables)
@@ -180,7 +198,9 @@ filt_co2_150p = (df_co2_contry<alowable_emis_pr_country).all(axis=1)
 run_name = '2030-2050'
 
 df = df_secondary[['system_cost']]
-df['co2 reduction'] = (1-df_co2.sum(axis=1)/base_emis)*100
+#df['co2 emission'] = df_co2.sum(axis=1)
+df['co2 emission'] =df_store['co2 atmosphere']
+#df['co2 reduction'] = (1-df_co2.sum(axis=1)/base_emis)*100
 df['year'] = df_co2['year']
 
 #df['filt_cost'] = filt_cost
@@ -247,15 +267,15 @@ sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',
 #plt.suptitle('Scenarios with less than 150% emisons compared to 100% coal production')
 #plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
 
-sns_plot.savefig(f'graphics/secondary_{run_name}.jpeg')
+#sns_plot.savefig(f'graphics/secondary_{run_name}.jpeg')
 sns_plot.fig.show()
 
 #%% Plot of chain development over time 
 
-accept_percent = sum(theta.a)/theta.shape[0]*100
+accept_percent = sum(df_theta.a)/df_theta.shape[0]*100
 print(f'Acceptance {accept_percent:.1f}%')
 
-theta_long = pd.wide_to_long(theta,stubnames=['theta_'],i='id',j='theta')
+theta_long = pd.wide_to_long(df_theta,stubnames=['theta_'],i='index',j='theta')
 theta_long = theta_long.reset_index(level=['theta'])
 
 sns.set_theme(style="ticks")
@@ -292,7 +312,7 @@ plt.ylim(0,1000)
 #sns_plot.map_lower(sns.regplot)
 #sns_plot.savefig('test2.pdf')
 
-sns_plot.savefig(f'graphics/co2_emissions_{run_name}.jpeg')
+#sns_plot.savefig(f'graphics/co2_emissions_{run_name}.jpeg')
 sns_plot.fig.show()
 
 #%% plot of thetas 
@@ -489,6 +509,7 @@ def nodal_costs(network):
 
 
 def calculate_costs(n,label,costs):
+    opt_name = {"Store": "e", "Line" : "s", "Transformer" : "s"}
 
     for c in n.iterate_components(n.branch_components|n.controllable_one_port_components^{"Load"}):
         capital_costs = c.df.capital_cost*c.df[opt_name.get(c.name,"p") + "_nom_opt"]

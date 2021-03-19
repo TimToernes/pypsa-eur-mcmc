@@ -5,11 +5,11 @@
 *.pptx
 
 # Ignore intermediate results 
-data/networks/*
-inter_results/*
-tmp/*
-results/*
-graphics/*
+data/networks/
+inter_results/
+tmp/
+results/
+graphics/
 config.yaml
-.slurm-logs/*
+.slurm-logs/
 *.pyc

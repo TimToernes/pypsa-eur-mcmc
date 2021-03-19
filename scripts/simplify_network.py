@@ -2,6 +2,7 @@
 # 
 import pypsa
 import numpy as np
+import pandas as pd 
 import os
 #%%
 try :
@@ -9,6 +10,28 @@ try :
 except :
     os.chdir('..')
     network = pypsa.Network('data/networks/elec_s_37_ec_lcopt_Co2L.nc')
+
+
+#%%
+
+n_days = 40
+
+days = pd.Series(np.arange(24/3,8760/3+24/3,24/3))
+
+days = days.sample(n_days,random_state=42)
+days = days.sort_index()
+#days = days.reset_index(drop=True)
+
+new_snapshots = []
+for idx in days:
+    new_snapshots += list(network.snapshots[idx-24:idx])
+
+network.snapshots = pd.DatetimeIndex(new_snapshots)
+network.snapshot_weightings[:] = n_days/8760
+
+
+
+
 
 #%%
 
@@ -52,3 +75,6 @@ network.lopf(solver_name='gurobi',pyomo=False,formulation='kirchhoff',solver_opt
 
 network.export_to_netcdf('data/networks/elec_s_37_ec_lcopt_Co2L_h{}.nc'.format(n_new))
 # %%
+
+
+

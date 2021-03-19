@@ -43,9 +43,13 @@ def speed_tjek(network,nhours):
 
 
 #%%
-
-network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p55-3H-H-solar+p3-dist1_2030.nc',
-                        override_component_attrs=override_component_attrs)
+try : 
+    network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p55-3H-H-solar+p3-dist1_2030.nc',
+                            override_component_attrs=override_component_attrs)  
+except : 
+    os.chdir('..')
+    network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p55-3H-H-solar+p3-dist1_2030.nc',
+                            override_component_attrs=override_component_attrs)  
 man = mp.Manager()
 sol = solutions(network, man)
 
@@ -66,7 +70,7 @@ solver = {
     }}
 
 
-tjek_hours = [50,100,]#200,400,800,1600,2400,2920]
+tjek_hours = [50,100,200,400,800,1600]#,2400,2920]
 
 for nhours in tjek_hours:
 
@@ -76,13 +80,16 @@ for nhours in tjek_hours:
     network, time_spend = speed_tjek(network,nhours)
     
     network.c = time_spend
-    network.s = 0
+    network.s = nhours
 
     sol.put(network)
 
 sol.merge()
 
-os.mkdir('results/speed_test/')
+try :
+    os.mkdir('results/speed_test')
+except : 
+    pass
 sol.save_csv(f'results/speed_test/result_')
 # %%
 
@@ -91,7 +98,10 @@ sol.save_csv(f'results/speed_test/result_')
 # 50 snapshots = 32s 
 # 100 snapshots = 81,7s
 # 200 snapshots = 174s 
-# 2920 snapshots = 4800s
+# 400 snapshots = 15.8 min 
+# 800 snapshots = 55.6min
+# 1600 snapshots = 23 min 
+# 2920 snapshots = 80 min
 
 #x = [50,100,200,2920]
 #y = [32,81,174,4800]
