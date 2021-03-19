@@ -45,7 +45,7 @@ class solutions:
         if manager != None:
             self.queue = manager.Queue()
 
-        self.df_list2 = ['gen_p', 
+        self.df_list = ['gen_p', 
                          'gen_E', 
                          'storeage_unit_E', 
                          'storeage_unit_p', 
@@ -55,51 +55,9 @@ class solutions:
                          'lines', 
                          'co2_pr_node', 
                          'sum_vars', 
-                         'secondary_metrics']    
+                         'secondary_metrics',
+                         'nodal_costs']    
 
-        self.df_list = {'gen_p':self.gen_p,
-                        'gen_E':self.gen_E,
-                        'storeage_unit_E':self.storeage_unit_E,
-                        'storeage_unit_p':self.storeage_unit_p,
-                        'store_E':self.store_E,
-                        'store_p':self.store_p,
-                        'links':self.links,
-                        'lines':self.lines,
-                        'co2_pr_node':self.co2_pr_node,
-                        'sum_vars':self.sum_vars,
-                        'secondary_metrics':self.secondary_metrics}
-
-        #try :
-        #    co2_emission = [constraint.body() for constraint in network.model.global_constraints.values()][0]
-        #except :
-        #    co2_emission = 0
-
-
-    # Depriciated funtion 
-    #def append(self,network):
-    #    # Append new data to all dataframes
-    #    self.sum_vars = self.sum_vars.append(self.calc_sum_vars(network),ignore_index=True)
-    #    self.gen_p =    self.gen_p.append([network.generators.p_nom_opt],ignore_index=True)
-    #    self.links =    self.gen_p.append([network.links.p_nom_opt],ignore_index=True)
-    #    self.gen_E =    self.gen_E.append([network.generators_t.p.sum()],ignore_index=True)
-    #    self.secondary_metrics = self.secondary_metrics.append(self.calc_secondary_metrics(network),ignore_index=True)
-
-    def calc_secondary_metrics(self,network):
-        # Calculate secondary metrics
-        gini = self.calc_gini(network)
-        gini_co2 = self.calc_co2_gini(network)
-        co2_emission = self.calc_co2_emission(network)
-        system_cost = self.calc_system_cost(network)
-        autoarky = self.calc_autoarky(network)
-        return pd.DataFrame({'system_cost':system_cost,'co2_emission':co2_emission,'gini':gini,'gini_co2':gini_co2,'autoarky':autoarky},index=[0])
-
-    def calc_sum_vars(self,network):
-        sum_data = dict(network.generators.p_nom_opt.groupby(network.generators.carrier).sum())
-        sum_data['transmission'] = network.links.p_nom_opt.sum()
-        sum_data['co2_emission'] = self.calc_co2_emission(network)
-        sum_data.update(network.storage_units.p_nom_opt.groupby(network.storage_units.carrier).sum())
-        sum_vars = pd.DataFrame(sum_data,index=[0])
-        return sum_vars
 
     def put(self,network):
     # add new data to the solutions queue. This is used when new data is added from
@@ -127,73 +85,35 @@ class solutions:
         while not self.queue.empty() :
             part_res = self.queue.get(120)
 
-            for df_name in self.df_list2:
+            for df_name in self.df_list:
                 part_res_df = getattr(part_res,df_name)
                 self.__dict__[df_name] = self.__dict__[df_name].append(part_res_df,ignore_index=True)
 
-            #self.gen_E = self.gen_E.append(part_res.gen_E,ignore_index=True)
-            #self.gen_p = self.gen_p.append(part_res.gen_p,ignore_index=True)
-            #self.storeage_unit_E = self.storeage_unit_E.append(part_res.storeage_unit_E,ignore_index=True)
-            #self.storeage_unit_p = self.storeage_unit_p.append(part_res.storeage_unit_p,ignore_index=True)
-            #self.store_p = self.store_p.append(part_res.store_p,ignore_index=True)
-            #self.store_E = self.store_E.append(part_res.store_E,ignore_index=True)
-            #self.links = self.links.append(part_res.links,ignore_index=True)
-            #self.lines = self.lines.append(part_res.lines,ignore_index=True)
-            #self.co2_pr_node = self.co2_pr_node.append(part_res.co2_pr_node,ignore_index=True)
-            #self.sum_vars = self.sum_vars.append(part_res.sum_vars,ignore_index=True)
-            #self.secondary_metrics = self.secondary_metrics.append(part_res.secondary_metrics,ignore_index=True)
-            #try : 
-            #    self.df_chain
-            #except : 
-            #    pass
-            #else : 
-            #    self.df_chain = self.df_chain.append(part_res.df_chain,ignore_index=True)
-        #print('merged {} solution'.format(merge_num))
-
-    #def save_xlsx(self,file='save.xlsx'):
-    #    # Store all dataframes als excel file
-    #    self.df_list = {'gen_p':self.gen_p,
-    #            'gen_E':self.gen_E,
-    #            'storeage_unit_E':self.storeage_unit_E,
-    #            'storeage_unit_p':self.storeage_unit_p,
-    #            'store':self.store,
-    #            'links':self.links,
-    #            'lines':self.lines,
-    #            'sum_vars':self.sum_vars,
-    #            'secondary_metrics':self.secondary_metrics}
-#
-    #    writer = pd.ExcelWriter(file)
-    #    #sheet_names =  ['gen_p','gen_E','links','sum_var','secondary_metrics']
-    #    for i, df in enumerate(self.df_list):
-    #        self.df_list[df].to_excel(writer,df)
-    #    writer.save()
-    #    print('saved {}'.format(file))
 
     def save_csv(self, file_prefix='sol'):
-        #self.df_list = {'gen_p':self.gen_p,
-        #                'gen_E':self.gen_E,
-        #                'storeage_unit_E':self.storeage_unit_E,
-        #                'storeage_unit_p':self.storeage_unit_p,
-        #                'store_E':self.store_E,
-        #                'store_p':self.store_p,
-        #                'links':self.links,
-        #                'lines':self.lines,
-        #                'co2_pr_node':self.co2_pr_node,
-        #                'sum_vars':self.sum_vars,
-        #                'secondary_metrics':self.secondary_metrics}
-        #try : 
-        #    self.df_chain
-        #except : 
-        #    pass
-        #else : 
-        #    self.df_list['chain'] = self.df_chain
-        #
-        #for i, df in enumerate(self.df_list):
-        #    self.df_list[df].to_csv(file_prefix+df+".csv")
-#
-        for df_name in self.df_list2:
+        # Save a csv file for all dataframes in the df_list
+        for df_name in self.df_list:
             self.__dict__[df_name].to_csv(file_prefix+df_name+".csv")
 
+
+
+
+    def calc_secondary_metrics(self,network):
+        # Calculate secondary metrics
+        gini = self.calc_gini(network)
+        gini_co2 = self.calc_co2_gini(network)
+        co2_emission = self.calc_co2_emission(network)
+        system_cost = self.calc_system_cost(network)
+        autoarky = self.calc_autoarky(network)
+        return pd.DataFrame({'system_cost':system_cost,'co2_emission':co2_emission,'gini':gini,'gini_co2':gini_co2,'autoarky':autoarky},index=[0])
+
+    def calc_sum_vars(self,network):
+        sum_data = dict(network.generators.p_nom_opt.groupby(network.generators.carrier).sum())
+        sum_data['transmission'] = network.links.p_nom_opt.sum()
+        sum_data['co2_emission'] = self.calc_co2_emission(network)
+        sum_data.update(network.storage_units.p_nom_opt.groupby(network.storage_units.carrier).sum())
+        sum_vars = pd.DataFrame(sum_data,index=[0])
+        return sum_vars
 
     def calc_gini(self,network):
     # This function calculates the gini coefficient of a given PyPSA network.
