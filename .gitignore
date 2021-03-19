@@ -3,7 +3,7 @@
 .vscode/
 .snakemake/
 *.pptx
-
+*.nc
 # Ignore intermediate results 
 data/networks/
 inter_results/
