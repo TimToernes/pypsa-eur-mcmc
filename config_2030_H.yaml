@@ -3,17 +3,17 @@ logging:
   level: INFO
   format: '%(levelname)s:%(name)s:%(message)s'
 
-run_name: 'mcmc_2050_H'
-configfile: 'config_2050_H.yaml'
-network: 'data/networks/elec_s_37_lv1.5__Co2L0p05-3H-H-solar+p3-dist1_2050.nc'
+run_name: 'mcmc_2030_H'
+configfile: 'config_2030_H.yaml'
+network: 'data/networks/elec_s_37_lv1.5__Co2L0p55-3H-H-solar+p3-dist1_2030.nc'
 tmpdir: './tmp/'
 
-planning_horizons : 2050
+planning_horizons : 2030
 foresight: 'myopic'
 
 mga_slack: 0.2
 mcmc_variables: 'all' # 'all' selects all 
-co2_budget: 110346671.89027777  #1481895952.8  #CO2 budget from pypsa-eur-sec for elelctricity only  #38750000 
+co2_budget: 993120047.0124999 #1481895952.8  #CO2 budget from pypsa-eur-sec for elelctricity only  #38750000 
 conventional_backup: 0.5 # minimum 50% backup capacity from conventional power plants 
 
 
