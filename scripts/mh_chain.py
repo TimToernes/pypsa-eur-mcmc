@@ -171,7 +171,7 @@ def calc_150p_coal_emis(network,emis_factor=1.5):
     # Calculate the alowable emissions, if countries are constrained to not emit more co2 than 
     # the emissions it would take to cover 150% of the country demand with coal power 
 
-    co2_emis_pr_ton = 0.095 # ton emission of co2 pr MWh el produced by coal
+    co2_emis_pr_ton = 0.45 # ton emission of co2 pr MWh el produced by coal
     country_loads = network.loads_t.p.groupby(network.buses.country,axis=1).sum()
     country_alowable_emis = country_loads.mul(network.snapshot_weightings,axis=0).sum()*co2_emis_pr_ton*emis_factor
 
