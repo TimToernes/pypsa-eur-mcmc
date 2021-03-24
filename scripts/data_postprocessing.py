@@ -11,7 +11,7 @@ import queue # imported for using queue.Empty exception
 from itertools import product
 from functools import partial
 import time 
-
+from shutil import copyfile
 
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
@@ -89,5 +89,8 @@ if __name__=='__main__':
 
 
     sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
+
+    copyfile(f'inter_results/{snakemake.config["run_name"]}/theta.csv',f'results/{snakemake.config["run_name"]}/theta.csv')
+    
     #sol.save_xlsx('results/result.xlsx')
 # %%

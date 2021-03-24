@@ -56,7 +56,8 @@ class solutions:
                          'co2_pr_node', 
                          'sum_vars', 
                          'secondary_metrics',
-                         'nodal_costs']    
+                         'nodal_costs',
+                         'df_chain']    
 
 
     def put(self,network):

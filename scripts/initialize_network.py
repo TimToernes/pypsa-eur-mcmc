@@ -69,7 +69,9 @@ def calc_150p_coal_emis(network,emis_factor=1.5):
     # Calculate the alowable emissions, if countries are constrained to not emit more co2 than 
     # the emissions it would take to cover 150% of the country demand with coal power 
 
-    co2_emis_pr_ton = 0.095 # ton emission of co2 pr MWh el produced by coal
+    # data source https://ourworldindata.org/grapher/carbon-dioxide-emissions-factor
+    # 403.2 kg Co2 pr MWh
+    co2_emis_pr_ton = 0.45 # ton emission of co2 pr MWh el produced by coal
     country_loads = network.loads_t.p.groupby(network.buses.country,axis=1).sum()
     country_alowable_emis = country_loads.mul(network.snapshot_weightings,axis=0).sum()*co2_emis_pr_ton*emis_factor
 
@@ -124,7 +126,7 @@ if __name__ == '__main__':
     builtins.snakemake = snakemake
 
     # Copy config file to results folder 
-    copyfile('config.yaml',snakemake.output[-1])
+    copyfile(snakemake.config['configfile'],snakemake.output[-1])
 
     network = pypsa.Network(snakemake.input.network, 
                             override_component_attrs=override_component_attrs)
@@ -148,17 +150,19 @@ if __name__ == '__main__':
     #network.theta_base = "inter_results/theta_base.csv"
     #np.savetxt(network.theta_base,theta_base)
 
-    network = solve_network.prepare_network(network)
+    #network = solve_network.prepare_network(network)
 
     allowable_emis = calc_150p_coal_emis(network,)
     allowable_emis['EU'] = np.inf
 
-    snakemake.config['use_local_co2_constraints'] = True
+    snakemake.config['use_local_co2_constraints'] = False
     snakemake.config['local_emission_constraints'] = allowable_emis
 
 
     # solve network to get optimum solution
     network = solve_network.solve_network(network)
+
+    duals = network.dualvalues
     #network.lopf(**snakemake.config.get('solver'))
     network.objective_optimum = network.objective
     network.accepted = 1 
