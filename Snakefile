@@ -63,7 +63,8 @@ rule calc_sigma:
 
 rule data_postprocess:
     input:
-        expand("inter_results/{run_name}/network_c{chain}_s{sample}.nc",chain=chains,sample=config['sampler']['samples'],run_name=config['run_name'])
+        expand("inter_results/{run_name}/network_c{chain}_s{sample}.nc",chain=chains,sample=config['sampler']['samples'],run_name=config['run_name']),
+        sigma = 'inter_results/{run_name}/sigma_s{sample}.csv'.format(run_name=config['run_name'],sample=config['sampler']['samples'])
     threads: 64
     script:
         'scripts/data_postprocessing.py'

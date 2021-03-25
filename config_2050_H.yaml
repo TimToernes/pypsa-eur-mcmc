@@ -19,8 +19,8 @@ conventional_backup: 0.5 # minimum 50% backup capacity from conventional power p
 
 sampler:
   chains: 10
-  samples: 101 # has to be a multiple of batch + 1
-  eps: 0.02
+  samples: 161 # has to be a multiple of batch + 1
+  eps: 0.2
   batch: 20
 
 
