@@ -32,6 +32,34 @@ override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output",
 #%%
 
 
+def set_link_locations(network):
+    network.links['location'] = ""
+
+    query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
+    id_co2_links = network.links.query(query_string('co2 atmosphere')).index
+
+    country_codes = network.buses.country.unique()
+    country_codes = country_codes[:-1]
+
+    # Find all busses assosiated with the model countries 
+    country_buses = {code : [] for code in country_codes}
+    for country in country_codes:
+        country_nodes = list(network.buses.query('country == "{}"'.format(country)).index)
+        for bus in country_nodes:
+            country_buses[country].extend(list(network.buses.query('location == "{}"'.format(bus)).index))
+
+    # Set the location of all links connection to co2 atmosphere 
+    for country in country_buses:
+        for bus in country_buses[country]:
+            idx = network.links.loc[id_co2_links].query(query_string(bus))['location'].index
+            #idx = network.links.query(query_string(bus))['location'].index
+            network.links.loc[idx,'location'] = country
+
+    # Links connecting to co2 atmosphere without known location are set to belong to EU
+    idx_homeless = network.links.query(query_string('co2 atmosphere')).query('location == ""').index
+    network.links.loc[idx_homeless,'location'] = 'EU'
+    return network
+
 def calc_150p_coal_emis(network,emis_factor=1.5):
     # Calculate the alowable emissions, if countries are constrained to not emit more co2 than 
     # the emissions it would take to cover 150% of the country demand with coal power 
@@ -67,6 +95,8 @@ if __name__ == '__main__':
                             override_component_attrs=override_component_attrs)
 
     
+    
+
     allowable_emis = calc_150p_coal_emis(network,)
     allowable_emis['EU'] = np.inf
 
@@ -80,6 +110,7 @@ if __name__ == '__main__':
 
         network.global_constraints.constant=snakemake.config['co2_budget']*co2_red
         # solve network to get optimum solution
+        network = set_link_locations(network)
         network = solve_network.solve_network(network)
 
         try : 
@@ -88,10 +119,21 @@ if __name__ == '__main__':
             man = mp.Manager()
             sol = solutions(network, man)
 
-        p = f"inter_results/{snakemake.config['run_name']}/network_{co2_red:.2}.nc"
+        p = f"inter_results/{snakemake.config['run_name']}/network_{co2_red:.2f}.nc"
 
-        network.export_to_netcdf(p)
+        try:
+            network.export_to_netcdf(p)
+        except Exception:
+            os.mkdir(f"inter_results/{snakemake.config['run_name']}")
+            network.export_to_netcdf(p)
 
-    sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
+    sol.merge()
+
+    try :
+        sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
+    except Exception:
+        os.mkdir(f'results/{snakemake.config["run_name"]}')
+        sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
 
         
+# %%
