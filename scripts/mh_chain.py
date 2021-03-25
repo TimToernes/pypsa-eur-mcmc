@@ -171,7 +171,7 @@ def calc_150p_coal_emis(network,emis_factor=1.5):
     # Calculate the alowable emissions, if countries are constrained to not emit more co2 than 
     # the emissions it would take to cover 150% of the country demand with coal power 
 
-    co2_emis_pr_ton = 0.095 # ton emission of co2 pr MWh el produced by coal
+    co2_emis_pr_ton = 0.45 # ton emission of co2 pr MWh el produced by coal
     country_loads = network.loads_t.p.groupby(network.buses.country,axis=1).sum()
     country_alowable_emis = country_loads.mul(network.snapshot_weightings,axis=0).sum()*co2_emis_pr_ton*emis_factor
 
@@ -273,13 +273,21 @@ if __name__=='__main__':
             network.export_to_netcdf(out)
         else : # Sample rejected, copy previous network to next
             logging.info('sample rejected')
+            # Save rejected network
+            folder,file = os.path.split(out)
+            rejetc_path = os.path.join(folder,'rejected_'+file)
+            network.theta = theta_to_str(theta_proposed)
+            network.sample = n_sample+1
+            network.accepted = 0 
+            network.export_to_netcdf(rejetc_path)
+
+            # Save previous network
             network = pypsa.Network(out_prev,
                             override_component_attrs=override_component_attrs)
             network.theta = theta_to_str(theta_old)
             network.sample = n_sample+1
             network.accepted = 0 
             network.export_to_netcdf(out)
-            #shutil.copyfile(inp,out)
 
         # Increment file names and sample number
         n_sample = n_sample +1
