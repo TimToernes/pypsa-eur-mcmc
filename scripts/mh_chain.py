@@ -273,13 +273,21 @@ if __name__=='__main__':
             network.export_to_netcdf(out)
         else : # Sample rejected, copy previous network to next
             logging.info('sample rejected')
+            # Save rejected network
+            folder,file = os.path.split(out)
+            rejetc_path = os.path.join(folder,'rejected_'+file)
+            network.theta = theta_to_str(theta_proposed)
+            network.sample = n_sample+1
+            network.accepted = 0 
+            network.export_to_netcdf(rejetc_path)
+
+            # Save previous network
             network = pypsa.Network(out_prev,
                             override_component_attrs=override_component_attrs)
             network.theta = theta_to_str(theta_old)
             network.sample = n_sample+1
             network.accepted = 0 
             network.export_to_netcdf(out)
-            #shutil.copyfile(inp,out)
 
         # Increment file names and sample number
         n_sample = n_sample +1
