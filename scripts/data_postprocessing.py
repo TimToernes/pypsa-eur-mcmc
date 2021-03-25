@@ -90,7 +90,7 @@ if __name__=='__main__':
 
     sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
 
-    copyfile(f'inter_results/{snakemake.config["run_name"]}/theta.csv',f'results/{snakemake.config["run_name"]}/theta.csv')
+    #copyfile(f'inter_results/{snakemake.config["run_name"]}/theta.csv',f'results/{snakemake.config["run_name"]}/theta.csv')
     
     #sol.save_xlsx('results/result.xlsx')
 # %%

@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 from multiprocessing import Queue
+from _mcmc_helpers import str_to_theta
 
 #%% Solutions class
 class solutions:
@@ -30,6 +31,11 @@ class solutions:
         except : 
             self.co2_pr_node = pd.DataFrame()
 
+        try : 
+            self.theta = pd.DataFrame([str_to_theta(network.theta)])
+        except : 
+            self.theta = pd.DataFrame()
+
         nodal_costs = self.calc_nodal_costs(network)
         self.nodal_costs = pd.DataFrame(columns=nodal_costs.index,data=[nodal_costs.values])
 
@@ -57,6 +63,7 @@ class solutions:
                          'sum_vars', 
                          'secondary_metrics',
                          'nodal_costs',
+                         'theta',
                          'df_chain']    
 
 
@@ -95,8 +102,6 @@ class solutions:
         # Save a csv file for all dataframes in the df_list
         for df_name in self.df_list:
             self.__dict__[df_name].to_csv(file_prefix+df_name+".csv")
-
-
 
 
     def calc_secondary_metrics(self,network):
@@ -332,7 +337,7 @@ class solutions:
 if __name__ == '__main__':
     import pypsa
 
-    network = pypsa.Network('../data/networks/elec_s_37_lv1.5__Co2L0p25-3H-H-solar+p3-dist1_2040.nc')
+    network = pypsa.Network('../inter_results/mcmc_2030_H/network_c0_s1.nc')
 
     sol = solutions(network)
 
