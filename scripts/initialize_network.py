@@ -155,7 +155,7 @@ if __name__ == '__main__':
     allowable_emis = calc_150p_coal_emis(network,)
     allowable_emis['EU'] = np.inf
 
-    snakemake.config['use_local_co2_constraints'] = False
+    snakemake.config['use_local_co2_constraints'] = True
     snakemake.config['local_emission_constraints'] = allowable_emis
 
 
