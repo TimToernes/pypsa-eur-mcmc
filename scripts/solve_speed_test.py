@@ -103,6 +103,8 @@ sol.save_csv(f'results/speed_test/result_')
 # 1600 snapshots = 23 min 
 # 2920 snapshots = 80 min
 
+# 25 snapshots pr min
+
 #x = [50,100,200,2920]
 #y = [32,81,174,4800]
 

@@ -36,15 +36,15 @@ def draw_theta(theta,eps,upper_bound=1,lower_bound=0,):
 # %%
 dim=30
 theta = np.random.rand(dim)
-theta = theta/sum(theta)*0.1
+theta = theta/sum(theta)
 eps = np.ones(dim)*0.2
 #x = np.array([sample(theta,eps) for i in range(3000)])
 
-
+eps= np.random.normal(0.04,0.1,dim)
 # %%
 thetas = []
-for i in range(10000):
-    theta = draw_theta(theta,eps) 
+for i in range(1000):
+    theta = draw_theta(theta,eps,lower_bound=0,upper_bound=np.ones(dim)*0.03) 
     if sum(theta)>0:
         thetas.append(theta)
 thetas = np.array(thetas)

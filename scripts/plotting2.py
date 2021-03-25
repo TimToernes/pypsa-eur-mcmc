@@ -101,7 +101,7 @@ for year in years:
             df = pd.read_csv(f'results/{run_name}/'+df_names[df_name],index_col=0)
         df['year'] = year
         try :
-            dfs[df_name] = pd.concat((dfs[df_name],df))
+            dfs[df_name] = pd.concat((dfs[df_name],df),ignore_index=True)
             vars()[df_name] = dfs[df_name]
         except : 
             dfs[df_name] = df
@@ -342,7 +342,7 @@ sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',
 #plt.suptitle('Scenarios with less than 150% emisons compared to 100% coal production')
 #plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
 
-#sns_plot.savefig(f'graphics/secondary_{run_name}.jpeg')
+sns_plot.savefig(f'graphics/secondary_{run_name}.jpeg')
 sns_plot.fig.show()
 
 #%% Plot of chain development over time 
@@ -409,7 +409,7 @@ plt.suptitle('theta values (fraction of CO2 budget)')
 #sns_plot.map_lower(sns.regplot)
 #sns_plot.savefig('test2.pdf')
 
-#sns_plot.savefig(f'graphics/co2_emissions_{run_name}.jpeg')
+sns_plot.savefig(f'graphics/thetas_{run_name}.jpeg')
 sns_plot.fig.show()
 
 
