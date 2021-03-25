@@ -72,3 +72,9 @@ rule data_postprocess:
 rule speed_test:
     threads: 4
     script: 'scripts/solve_speed_test.py'
+
+rule co2_sweep:
+    input:
+        network=config['network']
+    threads: 4
+    script: 'scripts/co2_sweep.py'

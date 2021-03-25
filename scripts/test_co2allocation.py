@@ -3,7 +3,7 @@
 import pypsa
 from _helpers import configure_logging
 import numpy as np
-from pypsa.linopt import get_var, define_constraints, linexpr
+from pypsa.linopt import get_var, define_constraints, linexpr, get_dual
 
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
@@ -37,14 +37,11 @@ network = pypsa.Network(snakemake.input.network,override_component_attrs=overrid
 network.snapshots = network.snapshots[0:2]
 # %%
 
-network.lopf(**snakemake.config.get('solver'))
-
-
-#%%
 solver = {
   "solver_name": 'gurobi',
   "formulation": 'kirchhoff',
   "pyomo": False,
+  "keep_shadowprices": True,
   "solver_options": {
     "threads": 4,
     "method": 2, # barrier
@@ -54,6 +51,9 @@ solver = {
     "AggFill": 0,
     "PreDual": 0,
     }}
+
+
+network.lopf(**solver)
 
 # %%
 
@@ -89,12 +89,12 @@ stat = network.lopf(**solver,keep_shadowprices=True,
 network.generators.query("bus == 'PL0 0'").p_nom_opt
 #%%
 
-BASE_COST = 269683914613.72296
+base_cost= 269683914613.72296
 
 
 print('price increase ',network.objective-base_cost)
 
-global_co2_price = network.duals.co2_con.df.loc[0,'1']
+global_co2_price = network.global_constraints.mu.loc['CO2Limit']
 print('global co2 price ',global_co2_price)
 
 
