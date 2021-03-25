@@ -274,7 +274,10 @@ def add_backup_constraints(network,snapshots,coverage=0.25):
     # relative to the hour with highest load. 
 
     query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
-    id_co2_links = network.links.query(query_string('co2 atmosphere')).index
+    co2_links = network.links.query(query_string('co2 atmosphere'))
+    ac_buses = list(network.buses.query('carrier == "AC"').index)
+    co2_links = co2_links.query('bus1 == @ac_buses')
+    id_co2_links = co2_links.index
 
     country_max_loads = network.loads_t.p_set.max().groupby(network.buses.country).sum()
 
