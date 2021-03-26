@@ -44,7 +44,8 @@ class solutions:
         try :
             c = network.chain 
             s = network.sample
-            self.df_chain = pd.DataFrame(data=dict(c=[c],s=[s]))
+            a = network.accepted
+            self.df_chain = pd.DataFrame(data=dict(c=[c],s=[s],a=[a]))
         except : 
             self.df_chain = pd.DataFrame()
 
