@@ -68,7 +68,7 @@ df_names = dict(df_sum='result_sum_vars.csv',
                 df_storage_E='result_storeage_unit_E.csv',
                 df_storage_P='result_storeage_unit_P.csv',
                 df_nodal_cost='result_nodal_costs.csv',
-                df_theta='theta.csv'
+                df_theta='result_theta.csv'
                 )
 
 df_sum=pd.DataFrame()
