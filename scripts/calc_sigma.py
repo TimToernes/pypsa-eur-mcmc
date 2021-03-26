@@ -52,7 +52,15 @@ def increment_sample(path,incr=1):
     path_out = os.path.join(folder, file_new )
     return path_out
 
+def adaptive_sigma(df_theta,sigma_prev,accept_target=0.75):
+    sample_range = int(snakemake.wildcards.sample) - int(snakemake.config['sampler']['batch'])
+    accept_percent = df_theta.query(f's > = {sample_range}').a.mean()
 
+    if accept_percent>accept_target:
+        sigma = sigma_prev*1.1
+    else :
+        sigma = sigma_prev*0.9
+    return sigma
 
 def worker(q,thetas,mcmc_variables,co2_budget,q_proc_done,snakemake):
     proc_name = mp.current_process().name
@@ -137,15 +145,15 @@ if __name__=='__main__':
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
-            snakemake = mock_snakemake('calc_sigma',sample=6,run_name='mcmc_2030')
+            snakemake = mock_snakemake('calc_sigma',sample=11,run_name='mcmc_test')
         except :
             os.chdir('..')
-            snakemake = mock_snakemake('calc_sigma',sample=6,run_name='mcmc_2030')
+            snakemake = mock_snakemake('calc_sigma',sample=11,run_name='mcmc_test')
     # Setup logging
     configure_logging(snakemake,skip_handlers=True)
 
     # impor a network and other variables 
-    network = pypsa.Network(snakemake.input[0])
+    network = pypsa.Network(snakemake.input[1])
     mcmc_variables = read_csv(network.mcmc_variables)
     mcmc_variables = [row[0]+row[1] for row in mcmc_variables]
     eps = float(snakemake.config['sampler']['eps'])
@@ -161,12 +169,15 @@ if __name__=='__main__':
     
     df_theta.to_csv(f'inter_results/{snakemake.config["run_name"]}/theta.csv')
 
+    sigma_prev = np.genfromtxt(snakemake.input[0])
+
     thetas = np.array(df_theta.iloc[:,0:34])
 
     # Calculate sigma from the data. 
     # If the sigma values are low, the eps parameter is added to the diagonal 
     #sigma = np.cov(thetas.T) 
-    sigma = np.std(thetas,axis=0)
+    #sigma = np.std(thetas,axis=0)
+    sigma = adaptive_sigma(df_theta,sigma_prev)
     #if np.mean(sigma.diagonal())<eps:
     #sigma += np.identity(thetas.shape[1])*eps
     sigma[sigma<eps] = eps
@@ -177,7 +188,7 @@ if __name__=='__main__':
     np.savetxt(snakemake.output['sigma'],sigma)
     #np.savetxt(snakemake.output['theta'],thetas)
 
-    for inp in snakemake.input:
+    for inp in snakemake.input[1:]:
         network = pypsa.Network(inp)
         network.sigma = increment_sample(network.sigma,snakemake.config['sampler']['batch'])
         network.export_to_netcdf(inp)

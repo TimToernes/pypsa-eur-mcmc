@@ -44,15 +44,17 @@ rule run_single_chain:
 
 def sigma_input(w):
     out = []
+    out.append('inter_results/{run_name}/sigma_s{sample}.csv'.format(sample=int(w.sample)-config['sampler']['batch'],run_name=w.run_name))
     #out.append('inter_results/sigma_s{sample}.csv'.format(sample=int(w.sample)-100))
     for c in range(config['sampler']['chains']):
         out.append('inter_results/{run_name}/network_c{chain}_s{sample}.nc'.format(chain=c,sample=int(w.sample),run_name=w.run_name))
+    
     return out 
 
 rule calc_sigma:
     input:
-        sigma_input
-        #sigma = lambda w: 'inter_results/sigma_s{sample}.csv'.format(sample=int(w.sample)-100)
+        sigma_input,
+        #sigma = 'inter_results/{run_name}/sigma_s{sample_m1}.csv'.format(sample_m1=sample-snakemake.config['sampler']['batch'])
     output:
         sigma = 'inter_results/{run_name}/sigma_s{sample}.csv',
         #theta = 'inter_results/theta_s{sample}.csv'
