@@ -124,12 +124,22 @@ class solutions:
 
     def calc_gini(self,network):
     # This function calculates the gini coefficient of a given PyPSA network.
-        bus_total_prod = network.generators_t.p.sum().groupby(network.generators.bus).sum()
+
+        bus_total_prod = network.generators_t.p.sum().groupby(network.generators.location).sum()
+
+        ac_buses = network.buses.query('carrier == "AC"').index
+        filt = network.links.bus1.isin(ac_buses) & network.links.carrier.isin(generator_link_carriers)
+
+        bus_total_prod += -network.links_t.p1.sum()[filt].groupby(network.links.location).sum()
+        bus_total_prod.pop('')
+
         load_total= network.loads_t.p_set.sum()
+        load_total = load_total.groupby(network.buses.country).sum()
+
 
         rel_demand = load_total/sum(load_total)
         rel_generation = bus_total_prod/sum(bus_total_prod)
-        
+
         # Rearange demand and generation to be of increasing magnitude
         idy = np.argsort(rel_generation/rel_demand)
         rel_demand = rel_demand[idy]
@@ -144,8 +154,9 @@ class solutions:
         lorenz_integral= 0
         for i in range(len(rel_demand)-1):
             lorenz_integral += (rel_demand[i+1]-rel_demand[i])*(rel_generation[i+1]-rel_generation[i])/2 + (rel_demand[i+1]-rel_demand[i])*rel_generation[i]
-        
+
         gini = 1- 2*lorenz_integral
+
         return gini
 
     def calc_autoarky(self,network):
