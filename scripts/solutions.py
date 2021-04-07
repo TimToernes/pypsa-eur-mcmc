@@ -124,12 +124,23 @@ class solutions:
 
     def calc_gini(self,network):
     # This function calculates the gini coefficient of a given PyPSA network.
-        bus_total_prod = network.generators_t.p.sum().groupby(network.generators.bus).sum()
+
+        bus_total_prod = network.generators_t.p.sum().groupby(network.generators.location).sum()
+
+        ac_buses = network.buses.query('carrier == "AC"').index
+        generator_link_carriers = ['OCGT', 'CCGT', 'coal', 'lignite', 'nuclear', 'oil']
+        filt = network.links.bus1.isin(ac_buses) & network.links.carrier.isin(generator_link_carriers)
+
+        bus_total_prod += -network.links_t.p1.sum()[filt].groupby(network.links.location).sum()
+        bus_total_prod.pop('')
+
         load_total= network.loads_t.p_set.sum()
+        load_total = load_total.groupby(network.buses.country).sum()
+
 
         rel_demand = load_total/sum(load_total)
         rel_generation = bus_total_prod/sum(bus_total_prod)
-        
+
         # Rearange demand and generation to be of increasing magnitude
         idy = np.argsort(rel_generation/rel_demand)
         rel_demand = rel_demand[idy]
@@ -144,8 +155,9 @@ class solutions:
         lorenz_integral= 0
         for i in range(len(rel_demand)-1):
             lorenz_integral += (rel_demand[i+1]-rel_demand[i])*(rel_generation[i+1]-rel_generation[i])/2 + (rel_demand[i+1]-rel_demand[i])*rel_generation[i]
-        
+
         gini = 1- 2*lorenz_integral
+
         return gini
 
     def calc_autoarky(self,network):
@@ -241,10 +253,13 @@ class solutions:
     def calc_co2_gini(self,network):
 
         co2_emis = self.calc_co2_emis_pr_node(network)
+        co2_emis = np.array(self.co2_pr_node)[0]
         #co2_emis = pd.Series(co2_emis)
 
         #bus_total_prod = network.generators_t.p.sum().groupby(network.generators.bus).sum()
         load_total= network.loads_t.p_set.sum()
+        load_total = load_total.groupby(network.buses.country).sum()
+        load_total.pop('')
 
         rel_demand = load_total/sum(load_total)
         rel_generation = co2_emis/sum(co2_emis)
@@ -337,11 +352,61 @@ class solutions:
 
 if __name__ == '__main__':
     import pypsa
+    override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
+    override_component_attrs["Link"].loc["bus2"] = ["string",np.nan,np.nan,"2nd bus","Input (optional)"]
+    override_component_attrs["Link"].loc["bus3"] = ["string",np.nan,np.nan,"3rd bus","Input (optional)"]
+    override_component_attrs["Link"].loc["bus4"] = ["string",np.nan,np.nan,"4th bus","Input (optional)"]
+    override_component_attrs["Link"].loc["efficiency2"] = ["static or series","per unit",1.,"2nd bus efficiency","Input (optional)"]
+    override_component_attrs["Link"].loc["efficiency3"] = ["static or series","per unit",1.,"3rd bus efficiency","Input (optional)"]
+    override_component_attrs["Link"].loc["efficiency4"] = ["static or series","per unit",1.,"4th bus efficiency","Input (optional)"]
+    override_component_attrs["Link"].loc["p2"] = ["series","MW",0.,"2nd bus output","Output"]
+    override_component_attrs["Link"].loc["p3"] = ["series","MW",0.,"3rd bus output","Output"]
+    override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output","Output"]
 
-    network = pypsa.Network('../inter_results/mcmc_2030_H/network_c0_s1.nc')
+
+
+    def set_link_locataions(network):
+        network.links['location'] = ""
+        network.generators['location'] = ""
+        network.lines['location'] = ""
+        network.stores['location'] = ""
+        #network.storage_units['location']
+
+        query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
+        id_co2_links = network.links.query(query_string('co2 atmosphere')).index
+
+        country_codes = network.buses.country.unique()
+        country_codes = country_codes[:-1]
+
+        # Find all busses assosiated with the model countries 
+        country_buses = {code : [] for code in country_codes}
+        for country in country_codes:
+            country_nodes = list(network.buses.query('country == "{}"'.format(country)).index)
+            for bus in country_nodes:
+                country_buses[country].extend(list(network.buses.query('location == "{}"'.format(bus)).index))
+
+        # Set the location of all links connection to co2 atmosphere 
+        for country in country_buses:
+            for bus in country_buses[country]:
+                idx = network.links.query(query_string(bus))['location'].index
+                network.links.loc[idx,'location'] = country
+
+                idx = network.generators.query(f"bus == '{bus}'")['location'].index
+                network.generators.loc[idx,'location'] = country
+
+        # Links connecting to co2 atmosphere without known location are set to belong to EU
+        idx_homeless = network.links.query(query_string('co2 atmosphere')).query('location == ""').index
+        network.links.loc[idx_homeless,'location'] = 'EU'
+        return network
+
+
+    network = pypsa.Network('results/mcmc_2030_H/network_c0_s1.nc',
+                            override_component_attrs=override_component_attrs)
 
     sol = solutions(network)
 
+    network = set_link_locataions(network)
+    
     sol.put(network)
 
     sol.merge()
