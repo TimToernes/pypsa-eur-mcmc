@@ -259,7 +259,10 @@ class solutions:
         #bus_total_prod = network.generators_t.p.sum().groupby(network.generators.bus).sum()
         load_total= network.loads_t.p_set.sum()
         load_total = load_total.groupby(network.buses.country).sum()
-        load_total.pop('')
+        try : 
+            load_total.pop('')
+        except : 
+            pass 
 
         rel_demand = load_total/sum(load_total)
         rel_generation = co2_emis/sum(co2_emis)
