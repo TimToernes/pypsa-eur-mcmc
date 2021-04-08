@@ -1,19 +1,10 @@
 #%%
-#from scripts.initialize_network import set_link_locations
+
 import pypsa
 import os 
-#import csv
 import numpy as np 
 import pandas as pd 
-#import re 
-#from _helpers import configure_logging
-#from solutions import solutions
 import multiprocessing as mp
-#import queue # imported for using queue.Empty exception
-#from itertools import product
-#from functools import partial
-#import time 
-#import scipy
 import matplotlib.pyplot as plt
 #import matplotlib
 #matplotlib.interactive(False)
@@ -33,18 +24,20 @@ override_component_attrs["Link"].loc["p2"] = ["series","MW",0.,"2nd bus output",
 override_component_attrs["Link"].loc["p3"] = ["series","MW",0.,"3rd bus output","Output"]
 override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output","Output"]
 
-
 # %% import datasets 
 
+
 try :
-    network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p50-3H-H-solar+p3-dist1_2030.nc',
+    network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p50-3H-solar+p3-dist1_2030.nc',
                             override_component_attrs=override_component_attrs)
 except : 
     os.chdir('..')
-    network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p50-3H-H-solar+p3-dist1_2030.nc',
+    network = pypsa.Network('data/networks/elec_s_37_lv1.5__Co2L0p50-3H-solar+p3-dist1_2030.nc',
                             override_component_attrs=override_component_attrs)
 
 years = [2030,2040,2050]
+
+load_sweep = True
 
 # El 1510 MT
 # Heat 723 MT
@@ -53,6 +46,8 @@ years = [2030,2040,2050]
 
 emis_1990 =   1481895952.8
 emis_1990_H = 2206933437.8055553
+
+base_emis = emis_1990
 
 
 df_names = dict(df_sum='result_sum_vars.csv',
@@ -85,12 +80,16 @@ df_storage_E=pd.DataFrame()
 df_storage_P=pd.DataFrame()
 df_nodal_cost=pd.DataFrame()
 df_theta=pd.DataFrame()
+df_secondary_sweep = pd.DataFrame()
+df_store_P_sweep = pd.DataFrame()
+df_co2_sweep = pd.DataFrame()
+
 
 dfs = {}
 networks = {}
 
 for year in years:
-    run_name = f'mcmc_{year}_H'
+    run_name = f'mcmc_{year}'
     #run_name = 'h99_model'
     networks[year] = pypsa.Network(f'results/{run_name}/network_c0_s1.nc',override_component_attrs=override_component_attrs)
 
@@ -103,7 +102,7 @@ for year in years:
         try :
             dfs[df_name] = pd.concat((dfs[df_name],df),ignore_index=True)
             vars()[df_name] = dfs[df_name]
-        except : 
+        except Exception:
             dfs[df_name] = df
             vars()[df_name] = dfs[df_name]
 
@@ -114,12 +113,30 @@ mcmc_variables = [row[0]+row[1] for row in mcmc_variables]
 df_pop = pd.read_csv('data/API_SP.POP.TOTL_DS2_en_csv_v2_2106202.csv',sep=',',index_col=0,skiprows=3)
 df_gdp = pd.read_csv('data/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2055594.csv',sep=',',index_col=0,skiprows=3)
 
+if load_sweep :
+    for year in years:
+        run_name = f'sweep_e_{year}'
+        #run_name = 'h99_model'
+        #networks[year] = pypsa.Network(f'results/{run_name}/network_c0_s1.nc',override_component_attrs=override_component_attrs)
+
+        for df_name in df_names.keys():
+            if df_name =='df_nodal_cost':
+                df = pd.read_csv(f'results/{run_name}/'+df_names[df_name],index_col=0,header=[0,1,2,3])
+            else : 
+                df = pd.read_csv(f'results/{run_name}/'+df_names[df_name],index_col=0)
+            df['year'] = year
+            df_name = df_name + '_sweep'
+            try :
+                dfs[df_name] = pd.concat((dfs[df_name],df),ignore_index=True)
+                vars()[df_name] = dfs[df_name]
+            except : 
+                dfs[df_name] = df
+                vars()[df_name] = dfs[df_name]
 
 #%%#########################################
 ####### Data postprocessing ################
 ############################################
 
-df_theta.columns = [x for x in mcmc_variables+['s','c','a','year']]
 
 def set_link_locataions(network):
     network.links['location'] = ""
@@ -159,13 +176,11 @@ def set_link_locataions(network):
 
 cost_increase = (df_secondary.system_cost-network.objective_optimum)/network.objective_optimum*100
 
-base_emis = emis_1990_H
-
 df_secondary['cost_increase'] = cost_increase
 df_secondary['co2_reduction'] = 100 - df_co2.sum(axis=1)/base_emis * 100
 
 
-# Dataset with with aggregated technology capacities 
+# Dataset with with aggregated technology capacities
 network = set_link_locataions(network)
 idx = network.links.query('location != "EU" & location != ""').index
 df_link_sum = df_links[idx].groupby(network.links.carrier,axis=1).sum()
@@ -181,239 +196,304 @@ df_gen_sum = df_sum
 df_tech_sum = pd.concat([df_link_sum,df_gen_sum,df_store_sum],axis=1)
 df_tech_sum['wind'] = df_tech_sum[['offwind','offwind-ac','offwind-dc','onwind']].sum(axis=1)
 
-
-###########################################
-############### filters ###################
-###########################################
-# create filter for 150 CO2 reduction compared to coal production 
-
-country_loads = network.loads_t.p.sum().groupby(network.buses.country).sum()
-co2_emis_pr_ton = 0.095
-alowable_emis_pr_country = country_loads * co2_emis_pr_ton *1.5 * network.snapshot_weightings[0]
-df_co2_contry = df_co2.groupby(network.buses.country,axis=1).sum()
-df_co2_contry = df_co2_contry.loc[:,df_co2_contry.columns != '']
-filt_co2_150p = (df_co2_contry<alowable_emis_pr_country).all(axis=1)
-
-# create a filter for minimum backup capacity
-
-#df_ocgt = df_gen_p.loc[:,network.generators.carrier=='OCGT']
-#ocgt_pr_country = df_ocgt.groupby(network.generators.bus,axis=1).sum().groupby(network.buses.country,axis=1).sum()
-#country_max_load = network.loads_t.p.max().groupby(network.buses.country).sum()
-#filt_backup = (ocgt_pr_country>0.5*country_max_load).all(axis=1)
-
-# filter for 10% cost increase 
-#filt_cost = df_secondary['cost_increase'] < 10
+# Dataset with aggregated technology energy production 
+df_tech_e_sum = df_gen_e.groupby(network.generators.carrier,axis=1).sum()
 
 
 #%%##########################################
 # ############ plots ########################
 # ###########################################
-# Corrolelogram cost vs co2 
+# ####### Corrolelogram cost vs co2 #########
 
-co2_emis_levels = {2030:1-0.45,
-                    2040:1-0.225,
-                    2050:1-0.05}
+def plot_cost_vs_co2(prefix='',save=False):
 
-run_name = 'elec_heat'
-mga_slack = 0.2
+    co2_emis_levels = {2030:1-0.45,
+                        2040:1-0.225,
+                        2050:1-0.05}
 
-df = df_secondary[['system_cost']]
-#df['co2 emission'] = df_co2.sum(axis=1)
-df['co2 emission'] =df_store_P['co2 atmosphere']
-df['co2 reduction'] = 1-(df['co2 emission']/base_emis )
-#df['co2 reduction'] = (1-df_co2.sum(axis=1)/base_emis)*100
-df['year'] = df_co2['year']
+    run_name = 'elec'
+    mga_slack = 0.2
 
-cost_limits = [df['system_cost'].min(),df['system_cost'].max()]
-co2_limits = [df['co2 reduction'].min(),df['co2 reduction'].max()]
+    df = df_secondary[['system_cost']]
+    #df['co2 emission'] = df_co2.sum(axis=1)
+    df['co2 emission'] =df_store_P['co2 atmosphere']
+    df['co2 reduction'] = 1-(df['co2 emission']/base_emis )
+    #df['co2 reduction'] = (1-df_co2.sum(axis=1)/base_emis)*100
+    df['year'] = df_co2['year']
 
-def plot_lower(xdata,ydata,**kwargs):
-    plt.gca().vlines(co2_emis_levels[kwargs['label']],
-                     ymin=cost_limits[0],
-                     ymax=cost_limits[1],
-                     colors=kwargs['color'])
-    #cost = networks[kwargs['label']].objective_optimum
-    #plt.gca().hlines([cost],
-    #                 xmin=co2_limits[0],
-    #                 xmax=co2_limits[1],
-    #                 colors=kwargs['color'])
+    cost_limits = [df['system_cost'].min(),df['system_cost'].max()]
+    co2_limits = [df['co2 reduction'].min(),df['co2 reduction'].max()]
 
 
-#df['filt_cost'] = filt_cost
-
-sns_plot = sns.pairplot(df, 
-                        vars=['co2 reduction','system_cost'],
-                        kind="hist", 
-                        diag_kind='hist',
-                        hue='year',
-                        plot_kws=dict(bins=60),
-                        diag_kws=dict(bins=40,kde=False,log_scale=False),
-                        aspect=1.6,
-                        height=3,
-                        palette='Set1')
-#plt.suptitle('Scenarios with less than 150% local emisons compared to 100% coal production')
-#plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
-
-cost_limits = [df['system_cost'].min(),df['system_cost'].max()]
-sns_plot.map_lower(plot_lower)
-sns_plot.axes[0,0].set_ylim((0.5,1))
-sns_plot.axes[1,0].set_xlim((0.5,1))
-#sns_plot.map_lower(lambda xdata, ydata, **kwargs:plt.gca().vlines(co2_emis_levels[kwargs['label']],ymin=cost_limits[0],ymax=cost_limits[1],colors=kwargs['color']))
-
-sns_plot.savefig(f'graphics/cost_co2_{run_name}.jpeg')
-#fig = sns_plot.fig
-#fig.show()
-
-#%% Corrolelogram tech
-
-#df = df_sum[['OCGT', 'offwind-ac', 'offwind-dc', 'onwind', 'solar', 'transmission', 'H2', 'battery',]]
-df = df_tech_sum[['wind','year','battery_store']]
-df['OCGT + CCGT'] = df_tech_sum['OCGT']+df_tech_sum['CCGT']
-df['solar'] = df_tech_sum['solar'] + df_tech_sum['solar rooftop']
-df['H2'] = df_tech_sum['H2 Fuel Cell'] +  df_tech_sum['H2 Electrolysis'] + df_tech_sum['H2_store']
-#df = df[df_chain.s>200]
-#df['co2<150p'] = filt_co2_150p
-#df['10p_backup'] = filt_backup
-#df['c'] = df_chain.c
-#df = df[df_secondary.co2_reduction>50]
-#df['c'] = theta.c
-#df['filt_cost'] = filt_cost
-
-#df = df.sample(10000)
-# without regression
-sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',
-                        plot_kws=dict(bins=30),
-                        diag_kws=dict(bins=40),
-                        palette='Set1')
-
-#plt.suptitle('Scenarios with less than 150% local emisons compared to 100% coal production')
-#plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
-
-sns_plot.savefig(f'graphics/tech_{run_name}.jpeg')
-
-fig = sns_plot.fig
-fig.show()
-
-#%% dist plot tech
-
-#df_tech_sum = df_tech_sum.replace([np.inf, -np.inf], np.nan)
-#df_tech_sum = df_tech_sum.fillna(0)
-
-df = df_tech_sum#df_tech_sum[['CCGT','residential rural gas boiler','year']]
-
-df_long = df.melt(id_vars=['year'],var_name='tech',value_name='capacity')
-
-#df_long = df_long.replace([np.inf, -np.inf], np.nan)
-#df_long = df_long.fillna(0)
-
-f, ax = plt.subplots(figsize=(10,30))
-ax.set_xscale("log")
-#sns.despine(bottom=True, left=True)
-
-# Show each observation with a scatterplot
-sns.boxplot(x="capacity", y="tech", hue="year",
-                fliersize=0,
-              data=df_long, )
-plt.xlim(10)
-
-plt.savefig(f'graphics/tech_box_{run_name}.jpeg')
-
-#%% Corrolelogram secondary metrics
+    df_optimal = df_secondary_sweep[['system_cost']]
+    df_optimal['co2 emission'] = df_store_P_sweep['co2 atmosphere']
+    df_optimal['co2 reduction'] = 1-(df_optimal['co2 emission']/base_emis )
+    df_optimal['year'] = df_co2_sweep['year']
 
 
-df_secondary['transmission'] = df_sum['transmission']
-#df = sns.load_dataset('iris')
-df = df_secondary[['cost_increase','gini_co2','gini',]]
-df['co2_reduction'] = df['co2_reduction'] = 100 - df_co2.sum(axis=1)/base_emis * 100
-df['year'] = df_secondary['year']
-#df = df[df_secondary.cost_increase<7]
-#df = df[df_secondary.co2_reduction>50]
-#df['co2<150p'] = filt_co2_150p
-#df['10p_backup'] = filt_backup
-#df['c'] = theta.c
-#df['filt_cost'] = filt_cost
+    def plot_optimum(xdata,ydata,**kwargs):
+        plt.gca()
+        sns.lineplot(data=df_optimal,
+                            x='co2 reduction',
+                            y='system_cost',
+                            hue='year',
+                            palette='Set1'
+                            )
+
+
+    # Function for plotting vertical lines for co2 limit 
+    def plot_lower(xdata,ydata,**kwargs):
+        plt.gca().vlines(co2_emis_levels[kwargs['label']],
+                        ymin=cost_limits[0],
+                        ymax=cost_limits[1],
+                        colors=kwargs['color'])
+        #cost = networks[kwargs['label']].objective_optimum
+        #plt.gca().hlines([cost],
+        #                 xmin=co2_limits[0],
+        #                 xmax=co2_limits[1],
+        #                 colors=kwargs['color'])
+
+
+    #df['filt_cost'] = filt_cost
+
+    sns_plot = sns.pairplot(df, 
+                            vars=['co2 reduction','system_cost'],
+                            kind="hist", 
+                            diag_kind='hist',
+                            hue='year',
+                            plot_kws=dict(bins=60),
+                            diag_kws=dict(bins=60,kde=False,log_scale=False),
+                            aspect=1.6,
+                            height=3,
+                            palette='Set1')
+    #plt.suptitle('Scenarios with less than 150% local emisons compared to 100% coal production')
+    #plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
+
+    cost_limits = [df['system_cost'].min(),df['system_cost'].max()]
+    sns_plot.map_lower(plot_lower)
+    sns_plot.map_lower(plot_optimum)
+    sns_plot.axes[0,0].set_ylim((0.5,1))
+    sns_plot.axes[1,0].set_xlim((0.5,1))
+    #sns_plot.map_lower(lambda xdata, ydata, **kwargs:plt.gca().vlines(co2_emis_levels[kwargs['label']],ymin=cost_limits[0],ymax=cost_limits[1],colors=kwargs['color']))
+    if save:
+        sns_plot.savefig(f'graphics/cost_vs_co2_{prefix}.jpeg')
+
+
+plot_cost_vs_co2(save=False)
+
+#%%################## corrolelogram tech energy #######################
+#######################################################################
+
+def plot_corrolelogram_tech_energy(prefix='',store=False,
+    technologies = {'offwind':['offwind','offwind-ac','offwind-dc'],
+                'onwind':['onwind'],
+                'ror':['ror'],
+                'solar':['solar','solar rooftop'],
+                'uranium':['uranium'],
+                'fossil fuels':['gas','coal','lignite','oil']}):
+
+    df = df_tech_sum[['year']]
+    for key in technologies: 
+        df[key] = df_tech_e_sum[technologies[key]].sum(axis=1)
+
+
+    sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',
+                            plot_kws=dict(bins=30),
+                            diag_kws=dict(bins=40),
+                            palette='Set1')
+
+#%%################## Corrolelogram tech ##############################
+#######################################################################
+
+
+def plot_corrolelogram_tech_cap(prefix='',save=False,\
+                                technologies={'wind':['wind'],
+                                              'lignite + coal' : ['lignite','coal'],
+                                              'OCGT + CCGT': ['OCGT','CCGT'],
+                                              'solar':['solar','solar rooftop'],
+                                              'H2':['H2 Fuel Cell','H2 Electrolysis','H2_store'],
+                                              'battery':['battery charger','battery discharger','battery_store']}):
+
+    df = df_tech_sum[['year']]
+    for key in technologies: 
+        df[key] = df_tech_sum[technologies[key]].sum(axis=1)
+
+
+    sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',
+                            plot_kws=dict(bins=30),
+                            diag_kws=dict(bins=40),
+                            palette='Set1')
+
+    #plt.suptitle('Scenarios with less than 150% local emisons compared to 100% coal production')
+    #plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
+
+    if save:
+        sns_plot.savefig(f'graphics/corrolelogram_tech_cap_{prefix}.jpeg')
+
+    fig = sns_plot.fig
+    fig.show()
+
+
+plot_corrolelogram_tech_cap()
+
+
+#%%######### correlation matrix tech ######################
+###########################################################
+
+def plot_correlation_matrix():
+
+    plt.subplots(figsize=(15,15))
+
+    sns.heatmap(df_link_sum.corr(), annot=False,cmap="YlGnBu")
+    plt.show()
+
+#%%############ bar plot plot tech ######################
+#####################################################
+
+def plot_bar_tech():
+
+    #df_tech_sum = df_tech_sum.replace([np.inf, -np.inf], np.nan)
+    #df_tech_sum = df_tech_sum.fillna(0)
+
+    df = df_tech_sum#df_tech_sum[['CCGT','residential rural gas boiler','year']]
+
+    df_long = df.melt(id_vars=['year'],var_name='tech',value_name='capacity')
+
+    #df_long = df_long.replace([np.inf, -np.inf], np.nan)
+    #df_long = df_long.fillna(0)
+
+    f, ax = plt.subplots(figsize=(10,30))
+    ax.set_xscale("log")
+    #sns.despine(bottom=True, left=True)
+
+    # Show each observation with a scatterplot
+    sns.boxplot(x="capacity", y="tech", hue="year",
+                    fliersize=0,
+                data=df_long, )
+    plt.xlim(10)
+
+    #plt.savefig(f'graphics/tech_box_{run_name}.jpeg')
+
+#%%############### Corrolelogram secondary metrics ####################
+#######################################################################
+
+def plot_corrolelogram_secondary(prefix='',save=False):
+    # Autoarky is calculated as the mean self-sufficiency for evvery hour for every country 
+    # Gini is calculated using relative energy produvtion vs relative energy consumption 
+    # Gini co2 is calculated as relative co2 emission vs 
+
+    df_secondary['transmission'] = df_sum['transmission']
+    #df = sns.load_dataset('iris')
+    df = df_secondary[['cost_increase','gini_co2','gini','autoarky']]
+    df['co2_reduction'] = df['co2_reduction'] = 100 - df_co2.sum(axis=1)/base_emis * 100
+    df['year'] = df_secondary['year']
+    #df = df[df_secondary.cost_increase<7]
+    #df = df[df_secondary.co2_reduction>50]
+    #df['co2<150p'] = filt_co2_150p
+    #df['10p_backup'] = filt_backup
+    #df['c'] = theta.c
+    #df['filt_cost'] = filt_cost
 
 
 
-sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',
-                                            plot_kws=dict(bins=30),
-                                            diag_kws=dict(bins=40),
-                                            palette='Set1')
-#plt.suptitle('Scenarios with less than 150% emisons compared to 100% coal production')
-#plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
+    sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',
+                                                plot_kws=dict(bins=30),
+                                                diag_kws=dict(bins=40),
+                                                palette='Set1')
+    #plt.suptitle('Scenarios with less than 150% emisons compared to 100% coal production')
+    #plt.suptitle('Scenarios where all countries have more than 10% fosil fuel backup')
 
-sns_plot.savefig(f'graphics/secondary_{run_name}.jpeg')
-sns_plot.fig.show()
+    if save:
+        sns_plot.savefig(f'graphics/secondary_{run_name}.jpeg')
+        sns_plot.fig.show()
+    
+plot_corrolelogram_secondary()
 
 #%% Plot of chain development over time 
+def plot_chain_development(prefix='',save=False):
+    accept_percent = sum(df_chain.a)/df_theta.shape[0]*100
+    print(f'Acceptance {accept_percent:.1f}%')
 
-accept_percent = sum(df_theta.a)/df_theta.shape[0]*100
-print(f'Acceptance {accept_percent:.1f}%')
+    df = df_theta
+    df['index'] = df.index
+    df['s'] = df_chain['s']
+    df['c'] = df_chain['c']
 
-theta_long = pd.wide_to_long(df_theta,stubnames=['theta_'],i='index',j='theta')
-theta_long = theta_long.reset_index(level=['theta'])
+    theta_long = pd.wide_to_long(df,stubnames=[''],i='index',j='theta')
+    theta_long = theta_long.reset_index()
 
-sns.set_theme(style="ticks")
-# Define the palette as a list to specify exact values
-palette = sns.color_palette("rocket", as_cmap=True)
+    #sns.set_theme(style="ticks")
+    # Define the palette as a list to specify exact values
+    #palette = sns.color_palette("rocket", as_cmap=True)
 
-# Plot the lines on two facets
-sns.relplot(
-    data=theta_long,
-    x="s", y="theta_",
-    hue="theta",
-    palette=palette,
-    col='c',
-    kind="line",
-    height=5, aspect=.75,)
+    #f, ax = plt.subplots(figsize=(10,30))
+    # Plot the lines on two facets
+    sns.relplot(
+        data=theta_long.query('s < 10000 & c <=10 '),
+        x="s", y="",
+        hue="theta",
+        palette=palette,
+        row='c',
+        ci=None,
+        kind="line",
+        height=5, aspect=1.5,)
+    if save:
+        sns_plot.savefig(f'graphics/chain_development_{run_name}.jpeg')
+        sns_plot.fig.show()
 
 #%% plot of co2 emis 
 
+def plot_country_co2_emis(prefix='',save=False,\
+            countries=['AT','DE','DK','ES','FR','GB','IT','PL']):
 #df = df_co2[['DE','DK','FR','PL','ES']]
 #df['year'] = df_co2['year']
 # 
-df = df_co2[['AT','DE','DK','ES','FR','GB','IT','PL','year']]
-#df = df.sample(100)
+    df = df_co2[countries+['year']]
+    #df = df.sample(100)
 
-df_long = df.melt(id_vars=['year'],var_name='country',value_name='CO2 emission')
+    df_long = df.melt(id_vars=['year'],var_name='country',value_name='CO2 emission')
 
-#sns.set_palette('Paired')
-sns_plot = sns.displot(df_long,x='CO2 emission',
-                        kind='kde',
-                        #gridsize=100,
-                        #bw_adjust=100,
-                        common_norm=True,
-                        log_scale=True,
-                        multiple="stack",
-                        hue='country',
-                        row='year',
-                        palette='Set2',)
-plt.xlim(10**4)
+    #sns.set_palette('Paired')
+    sns_plot = sns.displot(df_long,x='CO2 emission',
+                            kind='kde',
+                            #gridsize=100,
+                            #bw_adjust=100,
+                            common_norm=True,
+                            log_scale=True,
+                            multiple="stack",
+                            hue='country',
+                            row='year',
+                            palette='Set2',)
+    plt.xlim(10**4)
 
-#df['filt_cost'] = filt_cost
+    #df['filt_cost'] = filt_cost
 
 
-#sns_plot.map_lower(sns.regplot)
-#sns_plot.savefig('test2.pdf')
+    #sns_plot.map_lower(sns.regplot)
+    #sns_plot.savefig('test2.pdf')
+    if save:
+        sns_plot.savefig(f'graphics/co2_emissions_{prefix}.jpeg')
+        sns_plot.fig.show()
 
-sns_plot.savefig(f'graphics/co2_emissions_{run_name}.jpeg')
-sns_plot.fig.show()
-
+plot_country_co2_emis()
 #%% plot of thetas 
 
-df = df_theta[['DK','DE','FR','PL','year']]
 
-sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',palette='Set2',)
-plt.suptitle('theta values (fraction of CO2 budget)')
+def plot_thetas(save=False):
+    df = df_theta[['1','2','3','4','year']]
 
-#sns_plot.map_lower(sns.regplot)
-#sns_plot.savefig('test2.pdf')
+    sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',palette='Set2',)
+    plt.suptitle('theta values (fraction of CO2 budget)')
 
-sns_plot.savefig(f'graphics/thetas_{run_name}.jpeg')
-sns_plot.fig.show()
+    #sns_plot.map_lower(sns.regplot)
+    #sns_plot.savefig('test2.pdf')
+    if save:
+        sns_plot.savefig(f'graphics/thetas_{run_name}.jpeg')
+        sns_plot.fig.show()
 
 
-#%%
+#%%##################################################
+############### test section ########################
 
 def calc_co2_gini(network):
 
@@ -602,4 +682,40 @@ def calc_150p_coal_emis(network,emis_factor=1.5):
     country_alowable_emis = country_loads.mul(network.snapshot_weightings,axis=0).sum()*co2_emis_pr_ton*emis_factor
 
     return country_alowable_emis
+# %%
+
+network = networks[2030]
+
+bus_total_prod = network.generators_t.p.sum().groupby(network.generators.location).sum()
+
+ac_buses = network.buses.query('carrier == "AC"').index
+filt = network.links.bus1.isin(ac_buses) & network.links.carrier.isin(generator_link_carriers)
+
+bus_total_prod += -network.links_t.p1.sum()[filt].groupby(network.links.location).sum()
+bus_total_prod.pop('')
+
+load_total= network.loads_t.p_set.sum()
+load_total = load_total.groupby(network.buses.country).sum()
+
+
+rel_demand = load_total/sum(load_total)
+rel_generation = bus_total_prod/sum(bus_total_prod)
+
+# Rearange demand and generation to be of increasing magnitude
+idy = np.argsort(rel_generation/rel_demand)
+rel_demand = rel_demand[idy]
+rel_generation = rel_generation[idy]
+
+# Calculate cumulative sum and add [0,0 as point
+rel_demand = np.cumsum(rel_demand)
+rel_demand = np.concatenate([[0],rel_demand])
+rel_generation = np.cumsum(rel_generation)
+rel_generation = np.concatenate([[0],rel_generation])
+
+lorenz_integral= 0
+for i in range(len(rel_demand)-1):
+    lorenz_integral += (rel_demand[i+1]-rel_demand[i])*(rel_generation[i+1]-rel_generation[i])/2 + (rel_demand[i+1]-rel_demand[i])*rel_generation[i]
+
+gini = 1- 2*lorenz_integral
+
 # %%
