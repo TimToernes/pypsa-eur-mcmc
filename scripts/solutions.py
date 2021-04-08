@@ -22,8 +22,11 @@ class solutions:
         self.store_p = pd.DataFrame(data=[network.stores.e_nom_opt],index=[0])
         self.store_E = pd.DataFrame(data=[network.stores_t.p.sum()],index=[0])
 
-        self.links =    pd.DataFrame(data=[network.links.p_nom_opt],index=[0])
-        self.lines =    pd.DataFrame(data=[network.lines.s_nom_opt],index=[0])
+        self.links_p =    pd.DataFrame(data=[network.links.p_nom_opt],index=[0])
+        self.links_E =  pd.DataFrame(data=[network.links_t.p0.sum()],index=[0])
+
+        self.lines_p =    pd.DataFrame(data=[network.lines.s_nom_opt],index=[0])
+        self.lines_E =    pd.DataFrame(data=[network.lines_t.p0.sum()],index=[0])
 
         try : 
             co2_emis = pd.Series(self.get_country_emis(network))
@@ -58,8 +61,10 @@ class solutions:
                          'storeage_unit_p', 
                          'store_E', 
                          'store_p', 
-                         'links', 
-                         'lines', 
+                         'links_p',
+                         'links_E', 
+                         'lines_p',
+                         'lines_E', 
                          'co2_pr_node', 
                          'sum_vars', 
                          'secondary_metrics',
@@ -403,13 +408,13 @@ if __name__ == '__main__':
         return network
 
 
-    network = pypsa.Network('results/mcmc_2030_H/network_c0_s1.nc',
+    network = pypsa.Network('../results/mcmc_2030_H/network_c0_s1.nc',
                             override_component_attrs=override_component_attrs)
 
     sol = solutions(network)
 
     network = set_link_locataions(network)
-    
+
     sol.put(network)
 
     sol.merge()
