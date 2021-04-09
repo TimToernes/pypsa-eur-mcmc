@@ -168,13 +168,23 @@ class solutions:
     def calc_autoarky(self,network):
         # calculates the autoarky of a model solution 
         # autoarky is calculated as the mean self sufficiency (energy produced/energy consumed) of all countries in all hours
-        mean_autoarky = []
-        for snap in network.snapshots:
-            hourly_load = network.loads_t.p_set.loc[snap]
-            hourly_autoarky = network.generators_t.p.loc[snap].groupby(network.generators.bus).sum()/hourly_load
-            hourly_autoarky_corected = hourly_autoarky.where(hourly_autoarky<1,1)
-            mean_autoarky.append(np.mean(hourly_autoarky_corected))
-        return np.mean(mean_autoarky)
+
+        bus_total_prod = network.generators_t.p.sum().groupby(network.generators.location).sum()
+
+        ac_buses = network.buses.query('carrier == "AC"').index
+        generator_link_carriers = ['OCGT', 'CCGT', 'coal', 'lignite', 'nuclear', 'oil']
+        filt = network.links.bus1.isin(ac_buses) & network.links.carrier.isin(generator_link_carriers)
+
+        bus_total_prod += -network.links_t.p1.sum()[filt].groupby(network.links.location).sum()
+        try:
+            bus_total_prod.pop('')
+        except : 
+            pass
+
+        bus_total_load = network.loads_t.p.groupby(network.buses.country,axis=1).sum().sum()
+
+        autoarky = (bus_total_prod/bus_total_load).mean()
+        return autoarky
 
     def calc_co2_emission(self,network):
             #CO2
