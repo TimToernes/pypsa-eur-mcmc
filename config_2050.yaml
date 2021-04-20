@@ -4,11 +4,14 @@ logging:
   format: '%(levelname)s:%(name)s:%(message)s'
 
 run_name: 'mcmc_2050'
-network: 'data/networks/elec_s_37_lv1.5__Co2L0p50-3H-solar+p3-dist1_2050.nc'
+configfile: 'config_2050.yaml'
+network: 'data/networks/elec_s_37_lv2.5__Co2L0p55-3H-solar+p3-dist1_2050.nc'
 tmpdir: './tmp/'
 
+planning_horizons : 2050
+foresight: 'myopic'
 
-mga_slack: 0.1
+mga_slack: 0.2
 mcmc_variables: 'all' # 'all' selects all 
 co2_budget: 74094797.64 #1481895952.8*0.55  #CO2 budget from pypsa-eur-sec for elelctricity only  #38750000 
 conventional_backup: 0.5 # minimum 50% backup capacity from conventional power plants 
@@ -17,8 +20,8 @@ conventional_backup: 0.5 # minimum 50% backup capacity from conventional power p
 sampler:
   chains: 8
   samples: 901 # has to be a multiple of batch + 1
-  eps: 0.02
-  batch: 100
+  eps: 0.2
+  batch: 20
 
 
 solver:
@@ -37,8 +40,7 @@ solver:
     GURO_PAR_BARDENSETHRESH: 200
 
 
-planning_horizons : 2050
-foresight: 'myopic'
+
 
 use_local_co2_constraints: false
 local_emission_constraints: 
@@ -87,7 +89,7 @@ solving:
 
     min_iterations: 1
     max_iterations: 1
-    nhours: 100
+    #nhours: 100
 
   solver:
     name: gurobi

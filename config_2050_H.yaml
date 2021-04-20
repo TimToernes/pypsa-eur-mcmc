@@ -5,7 +5,7 @@ logging:
 
 run_name: 'mcmc_2050_H'
 configfile: 'config_2050_H.yaml'
-network: 'data/networks/elec_s_37_lv1.5__Co2L0p05-3H-H-solar+p3-dist1_2050.nc'
+network: 'data/networks/elec_s_37_lv2.5__Co2L0p55-3H-H-solar+p3-dist1_2050.nc'
 tmpdir: './tmp/'
 
 planning_horizons : 2050
@@ -19,7 +19,7 @@ conventional_backup: 0.5 # minimum 50% backup capacity from conventional power p
 
 sampler:
   chains: 10
-  samples: 161 # has to be a multiple of batch + 1
+  samples: 901 # has to be a multiple of batch + 1
   eps: 0.2
   batch: 20
 
@@ -86,7 +86,7 @@ solving:
     keep_shadowprices: true
     clip_p_max_pu: 1.e-2
     load_shedding: false
-    noisy_costs: true
+    noisy_costs: false
 
     min_iterations: 1
     max_iterations: 1
