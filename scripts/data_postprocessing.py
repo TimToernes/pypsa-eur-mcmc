@@ -12,7 +12,7 @@ from itertools import product
 from functools import partial
 import time 
 from shutil import copyfile
-
+import pickle
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
 override_component_attrs["Link"].loc["bus2"] = ["string",np.nan,np.nan,"2nd bus","Input (optional)"]
@@ -41,8 +41,9 @@ def worker(q_in,sol,q_proc_done):
             q_proc_done.put(proc_name)
             break
         else:
-            if file[:7] == 'network':
+            if file[:7] == 'network' and file[-2:] == 'nc':
                 network = pypsa.Network(f'inter_results/{snakemake.config["run_name"]}/'+file,override_component_attrs=override_component_attrs)
+                network.duals , network.dualvalues = pickle.load( open(network.dual_path, "rb" ) )
                 sol.put(network)
                 del(network)
 
@@ -64,6 +65,7 @@ if __name__=='__main__':
 
     dir_lst = os.listdir(f'inter_results/{snakemake.config["run_name"]}/')
     network = pypsa.Network(snakemake.input[0],override_component_attrs=override_component_attrs)
+    network.duals , network.dualvalues = pickle.load( open(network.dual_path, "rb" ) )
     man = mp.Manager()
     sol = solutions(network, man)
     q_in = man.Queue()

@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from multiprocessing import Queue
 from _mcmc_helpers import str_to_theta
+import pickle
+from pypsa.linopt import get_dual
 
 #%% Solutions class
 class solutions:
@@ -33,6 +35,17 @@ class solutions:
             self.co2_pr_node = pd.DataFrame(columns=co2_emis.index,data=[co2_emis.values])
         except : 
             self.co2_pr_node = pd.DataFrame()
+
+        try : 
+            self.national_co2_dual = pd.DataFrame(data={get_dual(network,'national_co2',c).name :get_dual(network,'national_co2',c)[0] for c in network.dualvalues.loc['national_co2'].index},index=[0])
+        except : 
+            self.national_co2_dual = pd.DataFrame()
+
+        try : 
+            mean_nodal_cost = get_dual(network,'Bus','marginal_price').mean()
+            self.bus_nodal_price = pd.DataFrame(data=[mean_nodal_cost.values],columns=mean_nodal_cost.index)
+        except : 
+            self.bus_nodal_price = pd.DataFrame()
 
         try : 
             self.theta = pd.DataFrame([str_to_theta(network.theta)])
@@ -70,7 +83,9 @@ class solutions:
                          'secondary_metrics',
                          'nodal_costs',
                          'theta',
-                         'df_chain']    
+                         'df_chain',
+                         'national_co2_dual',
+                         'bus_nodal_price']    
 
 
     def put(self,network):
@@ -418,8 +433,10 @@ if __name__ == '__main__':
         return network
 
 
-    network = pypsa.Network('../results/mcmc_2030_H/network_c0_s1.nc',
+    network = pypsa.Network('../inter_results/mcmc_test/network_c0_s1.nc',
                             override_component_attrs=override_component_attrs)
+    network.duals , network.dualvalues = pickle.load( open('../'+network.dual_path, "rb" ) )
+
 
     sol = solutions(network)
 

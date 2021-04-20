@@ -13,6 +13,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 from _mcmc_helpers import *
 import solve_network
+import pickle
 
 
 
@@ -276,6 +277,16 @@ def sample(network):
     pr_i = calc_pr_narrow_co2(network,co2_budget)
     return network, pr_i, theta_proposed , theta
 
+def save_network(network,theta,sample,accepted,path):
+    network.name = os.path.relpath(os.path.normpath(path))
+    network.dual_path = network.name[:-2]+'p'
+    pickle.dump((network.duals,network.dualvalues),open(network.dual_path, "wb" ))
+    network.sample = sample
+    network.accepted = accepted
+    network.theta = theta_to_str(theta)
+    network.export_to_netcdf(path)
+    return network
+
 
 #%%
 if __name__=='__main__':
@@ -312,32 +323,38 @@ if __name__=='__main__':
         # Accept or reject the sample 
         if alpha<pr_i: # Sample accepted, save solved network
             logging.info('sample accepted')
-            network.sample = n_sample+1
-            network.accepted = 1
-            network.theta = theta_to_str(theta_proposed)
-            network.export_to_netcdf(out)
+            network = save_network(network,theta_proposed,n_sample+1,1,out)
+            #network.sample = n_sample+1
+            #network.accepted = 1
+            #network.theta = theta_to_str(theta_proposed)
+            #network.export_to_netcdf(out)
         else : # Sample rejected, copy previous network to next
             logging.info('sample rejected')
             # Save rejected network
             folder,file = os.path.split(out)
             rejetc_path = os.path.join(folder,'rejected_'+file)
-            network.theta = theta_to_str(theta_proposed)
-            network.sample = n_sample+1
-            network.accepted = 0 
-            network.export_to_netcdf(rejetc_path)
+            network = save_network(network,theta_proposed,n_sample+1,0,rejetc_path)
+            #network.theta = theta_to_str(theta_proposed)
+            #network.sample = n_sample+1
+            #network.accepted = 0 
+            #network.export_to_netcdf(rejetc_path)
 
             # Save previous network
             network = pypsa.Network(out_prev,
                             override_component_attrs=override_component_attrs)
-            network.theta = theta_to_str(theta_old)
-            network.sample = n_sample+1
-            network.accepted = 0 
-            network.export_to_netcdf(out)
+            network.duals , network.dualvalues = pickle.load( open(network.dual_path, "rb" ) )
+            network = save_network(network,theta_old,n_sample+1,0,out)
+            #network.theta = theta_to_str(theta_old)
+            #network.sample = n_sample+1
+            #network.accepted = 0 
+            #network.export_to_netcdf(out)
 
         # Increment file names and sample number
         n_sample = n_sample +1
         out_prev = out
         out = increment_sample(out)
+
+
 
 
 # %%

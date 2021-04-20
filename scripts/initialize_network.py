@@ -22,6 +22,7 @@ sys.path.append('./scripts/')
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import solve_network
+import pickle
 #import pandas as pd
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
@@ -189,6 +190,8 @@ if __name__ == '__main__':
     for i,p in enumerate(snakemake.output[:-2]):
 
         network.name = os.path.relpath(os.path.normpath(p))
+        network.dual_path = network.name[:-2]+'p'
+        pickle.dump((network.duals,network.dualvalues),open(network.dual_path, "wb" ))
         network.chain = i
         network.sample = 1
         network.export_to_netcdf(p)
