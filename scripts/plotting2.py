@@ -147,6 +147,7 @@ if load_sweep_data :
                 dfs[df_name] = df
                 vars()[df_name] = dfs[df_name]
 
+
 #%%#########################################
 ####### Data postprocessing ################
 ############################################
@@ -359,6 +360,14 @@ df_tech_sum, df_tech_e_sum = create_tech_sum_df(networks,df_links,df_sum,df_stor
 if df_secondary_sweep.size != 0: 
     df_tech_sum_sweep, df_tech_e_sum_sweep = create_tech_sum_df(networks_sweep,df_links_sweep,df_sum_sweep,df_store_P_sweep,df_gen_e_sweep)
 
+def create_country_pop_df(df_pop):
+    model_countries = network.buses.country.unique()[:33]
+    alpha3 = [iso_countries.get(c).alpha3 for c in model_countries]
+    df_pop_i = df_pop.set_index('Country Code')
+    model_countries_pop = pd.DataFrame(df_pop_i.loc[alpha3]['2018'])
+    model_countries_pop.index = model_countries
+    return pd.Series(model_countries_pop['2018'])
+df_country_pop = create_country_pop_df(df_pop)
 
 #%% Link energy balance in each country
 
@@ -736,7 +745,7 @@ def plot_geo(df,title):
 #%%################### box plot ############################
 ###############################################################
 
-def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co2_box'):
+def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co2_box',ylabel='CO2 emission'):
     #df_wide = co2_pr_pop
     model_countries = network.buses.country.unique()[:33]
     df = pd.melt(df_wide,value_vars=model_countries,id_vars='year',var_name='Country')
@@ -756,7 +765,7 @@ def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co
                         size=10,
                         ax=ax)
 
-    plt.ylabel('CO2 emission')
+    plt.ylabel(ylabel)
     plt.suptitle(title)
 
     if save:
@@ -795,6 +804,25 @@ def plot_unused_co2():
     plot_box(df,title='Unused Co2',prefix=prefix,name='unused_co2',save=True)
 
 plot_unused_co2()
+
+#%%
+
+df = df_country_cost/pd.Series(df_country_pop)
+df['year'] = df_chain['year']
+
+plot_box(df,ylabel='cost')
+plt.gca()
+#plt.ylim((0,5e4))
+
+#%%
+
+def plot_country_cost_co2(country='DK'):
+    sns.histplot(x=df_secondary['system_cost'],y=df_co2[country])
+
+    plt.savefig(f'graphics/country_co2_co2_{country}_{prefix}.jpeg')
+
+plot_country_cost_co2(country='FI')
+
 #%%##################### co2 emis pr gdp geo plot #############
 ###############################################################
 

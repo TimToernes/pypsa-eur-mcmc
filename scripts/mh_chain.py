@@ -48,27 +48,47 @@ def patch_pyomo_tmpdir(tmpdir):
 
 def draw_theta(theta,eps,upper_bound=1,lower_bound=0,):
     def unif(t,s_lb,s_ub):
+        # Draw a random number from either a lower uniform distribution or a higher uniform distribution
         if np.random.rand()>0.5:
             s = np.random.uniform(s_lb,t)
         else :
             s = np.random.uniform(t,s_ub)
         return s
 
+    # Set upper and lower bounds as vectors 
     if type(upper_bound) == int:
         upper_bound = np.ones(len(theta))*upper_bound
     if type(lower_bound) == int:
         lower_bound = np.ones(len(theta))*lower_bound
     
-
+    # Draw thetas 
     theta_proposed = np.zeros(len(theta))
     for i,t in enumerate(theta): 
         lower = max([t-eps[i]/2,lower_bound[i]])
         upper = min([t+eps[i]/2,upper_bound[i]])
         theta_proposed[i] = np.random.uniform(lower,upper,1)
     #if sum(theta_proposed)>1:
+
+    # Scale theta such that the sum is between 0 and 1
     scale_lb = max([sum(theta)-np.mean(eps),0])
     scale_ub = min([sum(theta)+np.mean(eps),1])
     theta_proposed = theta_proposed/sum(theta_proposed)*unif(sum(theta),scale_lb,scale_ub)
+    return theta_proposed
+
+def draw_theta_unbound(theta,eps,upper_bound=1,lower_bound=0):
+    # Draws a new theta based on previous. 
+    # Theta is drawn from a uniform distrubution with width eps and mean theta_i
+    if type(upper_bound) == int:
+        upper_bound = np.ones(len(theta))*upper_bound
+    if type(lower_bound) == int:
+        lower_bound = np.ones(len(theta))*lower_bound
+    
+    theta_proposed = np.zeros(len(theta))
+    for i,t in enumerate(theta): 
+        lower = max([t-eps[i]/2,lower_bound[i]])
+        upper = min([t+eps[i]/2,upper_bound[i]])
+        theta_proposed[i] = np.random.uniform(lower,upper,1)
+
     return theta_proposed
 
 def increment_sample(path):
@@ -121,6 +141,20 @@ def calc_pr(network,cost):
     Pr = lambda c :(-1/(1+np.exp(-100*c+100))+1)
     pr_i = Pr(mga_constraint_fullfilment)
     return pr_i
+
+def calc_pr_narrow_co2(network,co2_budget,slack=0.005):
+    country_emis = get_country_emis(network)
+    emis = sum(country_emis.values())
+
+    if emis > co2_budget*(1+slack):
+        pr_i = 0 
+    elif emis < co2_budget*(1-slack):
+        pr_i = 0 
+    else :
+        pr_i = 1
+    return pr_i
+
+
 
 def calc_capital_cost(network,mcmc_variables,theta_proposed):
     # Calculate the minimum capital cost of producing the proposed solution
@@ -190,8 +224,14 @@ def sample(network):
 
     co2_budget = snakemake.config['co2_budget']
     country_emis = get_country_emis(network)
-    #theta = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
-    theta = str_to_theta(network.theta)
+    try :
+        country_emis['EU']
+    except :
+        country_emis['EU'] = 0
+    # Use actual emissions as theta 
+    theta = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
+    # Use previous theta as theta 
+    #theta = str_to_theta(network.theta)
 
     #theta = get_theta(network,mcmc_variables,snakemake.config['co2_budget'])
     #sigma = np.array(read_csv(snakemake.input[1])).astype(float)
@@ -212,7 +252,8 @@ def sample(network):
     #theta_base = np.genfromtxt(network.theta_base)
     
     #Take step
-    theta_proposed = draw_theta(theta,sigma,lower_bound=0,upper_bound=theta_upper_bound)
+    #theta_proposed = draw_theta(theta,sigma,lower_bound=0,upper_bound=theta_upper_bound)
+    theta_proposed = draw_theta_unbound(theta,sigma,lower_bound=0,upper_bound=theta_upper_bound)
 
     co2_alocations = co2_budget*theta_proposed
     co2_alocations ={v:t for v,t in zip(mcmc_variables,co2_alocations)}
@@ -228,7 +269,11 @@ def sample(network):
     #network = solve_network(network,mcmc_variables,co2_alocations,tmpdir)
     cost_i = network.objective 
 
-    pr_i = calc_pr(network,cost_i)
+    # Calculate pr_i based on MGA slack 
+    #pr_i = calc_pr(network,cost_i)
+
+    # Calculate pr_i based on co2 emissions allone 
+    pr_i = calc_pr_narrow_co2(network,co2_budget)
     return network, pr_i, theta_proposed , theta
 
 
