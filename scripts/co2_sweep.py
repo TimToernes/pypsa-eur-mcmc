@@ -106,7 +106,7 @@ if __name__ == '__main__':
 
 
 
-    for co2_red in np.linspace(1,0,10):
+    for co2_red in np.linspace(0.5,0,50):
 
         network.global_constraints.constant=snakemake.config['co2_budget']*co2_red
         # solve network to get optimum solution

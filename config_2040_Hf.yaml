@@ -3,9 +3,9 @@ logging:
   level: INFO
   format: '%(levelname)s:%(name)s:%(message)s'
 
-run_name: 'mcmc_2040_H'
-configfile: 'config_2040_H.yaml'
-network: 'data/networks/elec_s_37_lv2.5__Co2L0p55-3H-H-solar+p3-dist1_2040.nc'
+run_name: 'mcmc_2040_Hf'
+configfile: 'config_2040_Hf.yaml'
+network: 'data/networks/elec_s_37_lv2.5__Co2L0p55-3H-H-solar+p3-dist1_2040f.nc'
 tmpdir: './tmp/'
 
 planning_horizons : 2040
@@ -19,9 +19,9 @@ conventional_backup: 0.5 # minimum 50% backup capacity from conventional power p
 
 sampler:
   chains: 10
-  samples: 741 # has to be a multiple of batch + 1
+  samples: 201 # has to be a multiple of batch + 1
   eps: 0.2
-  batch: 20
+  batch: 5
 
 
 solver:

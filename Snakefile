@@ -1,5 +1,5 @@
 
-#configfile: "config.yaml"
+#configfile: "config_2030.yaml"
 
 wildcard_constraints:
     sample="[1-9]?[0-9]?[0-9]?[0-9]"
@@ -68,6 +68,7 @@ rule data_postprocess:
         expand("inter_results/{run_name}/network_c{chain}_s{sample}.nc",chain=chains,sample=config['sampler']['samples'],run_name=config['run_name']),
         sigma = 'inter_results/{run_name}/sigma_s{sample}.csv'.format(run_name=config['run_name'],sample=config['sampler']['samples'])
     threads: 64
+    resources: mem='400G'
     script:
         'scripts/data_postprocessing.py'
 
