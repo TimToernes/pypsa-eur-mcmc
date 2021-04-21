@@ -1,5 +1,5 @@
 
-#configfile: "config_2030.yaml"
+#configfile: "config.yaml"
 
 wildcard_constraints:
     sample="[1-9]?[0-9]?[0-9]?[0-9]"
@@ -22,7 +22,7 @@ rule initialize_networks:
         f"inter_results/{config['run_name']}/sigma_s1.csv",
         f"results/{config['run_name']}/config.yaml",
         
-    threads: config['solver']['solver_options']['threads']
+    threads: config['solving']['solver']['threads']
     script: 'scripts/initialize_network.py'
     
 def chain_input(w):

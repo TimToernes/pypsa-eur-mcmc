@@ -95,16 +95,12 @@ if __name__ == '__main__':
                             override_component_attrs=override_component_attrs)
 
     
-    
 
     allowable_emis = calc_150p_coal_emis(network,)
-    allowable_emis['EU'] = np.inf
+    allowable_emis['EU'] = snakemake.config['co2_budget']
 
     snakemake.config['use_local_co2_constraints'] = True
     snakemake.config['local_emission_constraints'] = allowable_emis
-
-
-
 
     for co2_red in np.linspace(0.5,0,50):
 

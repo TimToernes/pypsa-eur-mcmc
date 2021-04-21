@@ -180,7 +180,7 @@ if __name__=='__main__':
     sigma = adaptive_sigma(df_theta,sigma_prev)
     #if np.mean(sigma.diagonal())<eps:
     #sigma += np.identity(thetas.shape[1])*eps
-    sigma[sigma<eps] = eps
+    #sigma[sigma<eps] = eps
     #else :
     #    sigma += np.identity(thetas.shape[1])*0.1
 
