@@ -129,13 +129,6 @@ if __name__ == '__main__':
     # Copy config file to results folder 
     copyfile(snakemake.config['configfile'],snakemake.output[-1])
 
-    # Change tmp dir to use scratch if running on prime 
-    try : 
-        job_id = os.getenv('$SLURM_JOB_ID')
-        snakemake.config['tmpdir'] = '/scratch/'+str(job_id)
-        print('Tmp dir set to: '+'/scratch/'+str(job_id))
-    except :
-        pass
 
     network = pypsa.Network(snakemake.input.network, 
                             override_component_attrs=override_component_attrs)

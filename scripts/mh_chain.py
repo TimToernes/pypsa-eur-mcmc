@@ -304,15 +304,6 @@ if __name__=='__main__':
     builtins.snakemake = snakemake
     configure_logging(snakemake,skip_handlers=True)
 
-    # Change tmp dir to use scratch if running on prime 
-    try : 
-        job_id = os.getenv('$SLURM_JOB_ID')
-        snakemake.config['tmpdir'] = '/scratch/'+str(job_id)
-        print('Tmp dir set to: '+'/scratch/'+str(job_id))
-    except :
-        pass
-
-
     # Get the sample number of the input network file
     pre,file = os.path.split(snakemake.input[0])
     sample_input = int(re.search('s([0-9]?[0-9]?[0-9])',file).group()[1:])
