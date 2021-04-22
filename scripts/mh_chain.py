@@ -143,13 +143,13 @@ def calc_pr(network,cost):
     pr_i = Pr(mga_constraint_fullfilment)
     return pr_i
 
-def calc_pr_narrow_co2(network,co2_budget,slack=0.005):
+def calc_pr_narrow_co2(network,base_emission,co2_budget,slack=0.005):
     country_emis = get_country_emis(network)
     emis = sum(country_emis.values())
 
-    if emis > co2_budget*(1+slack):
+    if emis > co2_budget+(base_emission*slack):
         pr_i = 0 
-    elif emis < co2_budget*(1-slack):
+    elif emis < co2_budget-(base_emission*slack):
         pr_i = 0 
     else :
         pr_i = 1
@@ -274,7 +274,8 @@ def sample(network):
     #pr_i = calc_pr(network,cost_i)
 
     # Calculate pr_i based on co2 emissions allone 
-    pr_i = calc_pr_narrow_co2(network,co2_budget)
+    base_emission = snakemake.config['base_emission']
+    pr_i = calc_pr_narrow_co2(network,base_emission,co2_budget)
     return network, pr_i, theta_proposed , theta
 
 def save_network(network,theta,sample,accepted,path):
