@@ -68,7 +68,7 @@ rule data_postprocess:
         expand("inter_results/{run_name}/network_c{chain}_s{sample}.nc",chain=chains,sample=config['sampler']['samples'],run_name=config['run_name']),
         sigma = 'inter_results/{run_name}/sigma_s{sample}.csv'.format(run_name=config['run_name'],sample=config['sampler']['samples'])
     threads: 64
-    resources: mem='400G'
+    resources: mem='400G', partition='q64'
     script:
         'scripts/data_postprocessing.py'
 
@@ -81,3 +81,9 @@ rule co2_sweep:
         network=config['network']
     threads: 4
     script: 'scripts/co2_sweep.py'
+
+rule co2_aloc_scenarios: 
+    input:
+        network=config['network']
+    threads: 4
+    script: 'scripts/co2_scenarios.py'
