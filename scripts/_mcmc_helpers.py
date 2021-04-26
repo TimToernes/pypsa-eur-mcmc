@@ -105,32 +105,61 @@ def str_to_theta(s):
     return a 
 
 
-def get_country_emis(network):
+def set_link_locations(network):
+    network.links['location'] = ""
 
     query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
     id_co2_links = network.links.query(query_string('co2 atmosphere')).index
 
-    country_codes = network.links.loc[id_co2_links].location.unique()
-    country_emis = {code:0 for code in country_codes}
+    country_codes = network.buses.country.unique()
+    country_codes = country_codes[:-1]
 
+    # Find all busses assosiated with the model countries 
+    country_buses = {code : [] for code in country_codes}
     for country in country_codes:
-        idx = network.links.query(f'location == "{country}"').index
-        id0 = (network.links.loc[idx] == 'co2 atmosphere')['bus0']
-        country_emis[country] -= network.links_t.p0[idx[id0]].sum(axis=1).mul(network.snapshot_weightings).sum()
-        id1 = (network.links.loc[idx] == 'co2 atmosphere')['bus1']
-        country_emis[country] -= network.links_t.p1[idx[id1]].sum(axis=1).mul(network.snapshot_weightings).sum()
-        id2 = (network.links.loc[idx] == 'co2 atmosphere')['bus2']
-        country_emis[country] -= network.links_t.p2[idx[id2]].sum(axis=1).mul(network.snapshot_weightings).sum()
-        id3 = (network.links.loc[idx] == 'co2 atmosphere')['bus3']
-        country_emis[country] -= network.links_t.p3[idx[id3]].sum(axis=1).mul(network.snapshot_weightings).sum()
-        id4 = (network.links.loc[idx] == 'co2 atmosphere')['bus4']
-        country_emis[country] -= network.links_t.p4[idx[id4]].sum(axis=1).mul(network.snapshot_weightings).sum()
+        country_nodes = list(network.buses.query('country == "{}"'.format(country)).index)
+        for bus in country_nodes:
+            country_buses[country].extend(list(network.buses.query('location == "{}"'.format(bus)).index))
 
-        if country == 'EU':
-            id_load_co2 = network.loads.query('bus == "co2 atmosphere"').index
-            co2_load = network.loads.p_set[id_load_co2].sum().sum()*sum(network.snapshot_weightings)
-            country_emis[country] -= co2_load
+    # Set the location of all links connection to co2 atmosphere 
+    for country in country_buses:
+        for bus in country_buses[country]:
+            idx = network.links.loc[id_co2_links].query(query_string(bus))['location'].index
+            #idx = network.links.query(query_string(bus))['location'].index
+            network.links.loc[idx,'location'] = country
 
-        total_emis = np.sum(list(country_emis.values())) 
-    
-    return country_emis
+    # Links connecting to co2 atmosphere without known location are set to belong to EU
+    idx_homeless = network.links.query(query_string('co2 atmosphere')).query('location == ""').index
+    network.links.loc[idx_homeless,'location'] = 'EU'
+    return network
+
+#
+#def get_country_emis(network):
+#
+#    query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
+#    id_co2_links = network.links.query(query_string('co2 atmosphere')).index
+#
+#    country_codes = network.links.loc[id_co2_links].location.unique()
+#    country_emis = {code:0 for code in country_codes}
+#
+#    for country in country_codes:
+#        idx = network.links.query(f'location == "{country}"').index
+#        id0 = (network.links.loc[idx] == 'co2 atmosphere')['bus0']
+#        country_emis[country] -= network.links_t.p0[idx[id0]].sum(axis=1).mul(network.snapshot_weightings).sum()
+#        id1 = (network.links.loc[idx] == 'co2 atmosphere')['bus1']
+#        country_emis[country] -= network.links_t.p1[idx[id1]].sum(axis=1).mul(network.snapshot_weightings).sum()
+#        id2 = (network.links.loc[idx] == 'co2 atmosphere')['bus2']
+#        country_emis[country] -= network.links_t.p2[idx[id2]].sum(axis=1).mul(network.snapshot_weightings).sum()
+#        id3 = (network.links.loc[idx] == 'co2 atmosphere')['bus3']
+#        country_emis[country] -= network.links_t.p3[idx[id3]].sum(axis=1).mul(network.snapshot_weightings).sum()
+#        id4 = (network.links.loc[idx] == 'co2 atmosphere')['bus4']
+#        country_emis[country] -= network.links_t.p4[idx[id4]].sum(axis=1).mul(network.snapshot_weightings).sum()
+#
+#        if country == 'EU':
+#            id_load_co2 = network.loads.query('bus == "co2 atmosphere"').index
+#            co2_load = network.loads.p_set[id_load_co2].sum().sum()*sum(network.snapshot_weightings)
+#            country_emis[country] -= co2_load
+#
+#        total_emis = np.sum(list(country_emis.values())) 
+#    
+#    return country_emis
