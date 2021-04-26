@@ -129,6 +129,7 @@ if __name__ == '__main__':
     # Copy config file to results folder 
     copyfile(snakemake.config['configfile'],snakemake.output[-1])
 
+
     network = pypsa.Network(snakemake.input.network, 
                             override_component_attrs=override_component_attrs)
     network = set_link_locations(network)
