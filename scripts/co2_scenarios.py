@@ -70,8 +70,10 @@ if __name__ == '__main__':
         
         country_emis = emis_alloc_schemes[emis_alloc]
 
+        network.global_constraints.constant['CO2Limit'] = snakemake.config['co2_budget']
         if emis_alloc == 'optimum':
             snakemake.config['use_local_co2_constraints'] = False
+            
         else : 
             try :
                 country_emis['EU']
