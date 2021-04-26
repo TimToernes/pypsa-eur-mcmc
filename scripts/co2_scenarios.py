@@ -17,8 +17,6 @@ from solutions import solutions
 import multiprocessing as mp
 
 
-
-
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
 override_component_attrs["Link"].loc["bus2"] = ["string",np.nan,np.nan,"2nd bus","Input (optional)"]
 override_component_attrs["Link"].loc["bus3"] = ["string",np.nan,np.nan,"3rd bus","Input (optional)"]
@@ -58,11 +56,11 @@ if __name__ == '__main__':
 
     national_co2 = co2_totals.loc[cts, "electricity"]
 
-    local_1990 = national_co2*co2_red*1e6
+    local_1990 = national_co2*(1-co2_red)*1e6
 
     load = network.loads_t.p.groupby(network.buses.country,axis=1).sum().sum()
 
-    local_load = load/sum(load)*co2_base_emis*co2_red*1e6
+    local_load = load/sum(load)*co2_base_emis*(1-co2_red)*1e6
 
     emis_alloc_schemes = {'local_load':local_load,'local_1990':local_1990,'optimum':None}
 
