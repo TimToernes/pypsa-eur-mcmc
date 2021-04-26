@@ -81,3 +81,9 @@ rule co2_sweep:
         network=config['network']
     threads: 4
     script: 'scripts/co2_sweep.py'
+
+rule co2_aloc_scenarios: 
+    input:
+        network=config['network']
+    threads: 4
+    script: 'scripts/co2_scenarios.py'
