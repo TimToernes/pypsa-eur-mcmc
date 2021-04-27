@@ -42,8 +42,9 @@ class solutions:
             self.national_co2_dual = pd.DataFrame()
 
         try : 
-            mean_nodal_cost = get_dual(network,'Bus','marginal_price').mean()
-            self.bus_nodal_price = pd.DataFrame(data=[mean_nodal_cost.values],columns=mean_nodal_cost.index)
+            #mean_nodal_cost = get_dual(network,'Bus','marginal_price').mean()
+            weighted_mean_nodal_cost = (abs(network.buses_t.p)*network.buses_t.marginal_price).sum()/abs(network.buses_t.p).sum()
+            self.bus_nodal_price = pd.DataFrame(data=[weighted_mean_nodal_cost.values],columns=weighted_mean_nodal_cost.index)
         except : 
             self.bus_nodal_price = pd.DataFrame()
 
