@@ -180,12 +180,11 @@ if __name__ == '__main__':
     network.theta = theta_to_str(theta)
     network.export_to_netcdf(f"results/{snakemake.config['run_name']}/network_c0_s1.nc")
 
-    try : # Remove the global CO2 constraint for the remaining scenarios 
-        snakemake.config['open_lower']
+    if snakemake.config['sampler']['narrow'] : # Remove the global CO2 constraint for the remaining scenarios 
+        snakemake.config['sampler']
         print('Using open lower')
         network.global_constraints.constant=snakemake.config['co2_budget']*100
-    except :
-        pass
+
 
     # Save the starting point for each chain
     for i,p in enumerate(snakemake.output[:-2]):
