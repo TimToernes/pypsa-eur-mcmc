@@ -145,10 +145,10 @@ if __name__=='__main__':
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
-            snakemake = mock_snakemake('calc_sigma',sample=11,run_name='mcmc_test')
+            snakemake = mock_snakemake('calc_sigma',sample=6,run_name='test')
         except :
             os.chdir('..')
-            snakemake = mock_snakemake('calc_sigma',sample=11,run_name='mcmc_test')
+            snakemake = mock_snakemake('calc_sigma',sample=6,run_name='test')
     # Setup logging
     configure_logging(snakemake,skip_handlers=True)
 

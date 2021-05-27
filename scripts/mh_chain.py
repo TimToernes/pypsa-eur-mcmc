@@ -123,18 +123,23 @@ def calc_pr(network,cost):
     pr_i = Pr(mga_constraint_fullfilment)
     return pr_i
 
-def calc_pr_narrow_co2(network,base_emission,co2_budget,slack=0.005):
+def calc_pr_narrow_co2(network,base_emission,co2_budget):
     country_emis = get_country_emis(network)
     emis = sum(country_emis.values())
+    slack = network.mga_slack
+    co2_slack = 0.005
+    cost_optimum = network.objective_optimum
+    cost = network.objective
 
-    if emis > co2_budget+(base_emission*slack):
-        pr_i = 0 
-    elif emis < co2_budget-(base_emission*slack):
-        pr_i = 0 
+    # If emissions are higher than budget + 0.5% then reject
+    if emis > co2_budget+(base_emission*co2_slack):
+        pr_i = 0
+    # If costs are higher than optimum + mga slack
+    elif cost > cost_optimum*(1+slack):
+        pr_i = 0
     else :
         pr_i = 1
     return pr_i
-
 
 
 def calc_capital_cost(network,mcmc_variables,theta_proposed):
@@ -179,14 +184,14 @@ def sample(network):
     except :
         country_emis['EU'] = 0
 
-    if snakemake.config['sampler']['narrow']:
+    #if snakemake.config['sampler']['narrow']:
         # Use actual emissions as theta 
-        theta = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
-    elif not snakemake.config['sampler']['narrow']:
+    theta = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
+    #elif not snakemake.config['sampler']['narrow']:
         # Use previous theta as theta 
-        theta = str_to_theta(network.theta)
-    else :
-        raise ValueError('sampler, narrow, not defined in config file')
+    #    theta = str_to_theta(network.theta)
+    #else :
+    #    raise ValueError('sampler, narrow, not defined in config file')
         
     sigma = np.genfromtxt(snakemake.input[1])
     allowable_emis = calc_150p_coal_emis(network)
@@ -195,12 +200,12 @@ def sample(network):
     theta_upper_bound = [allowable_emis[key]/co2_budget for key in mcmc_variables] 
     
     #Take step
-    if snakemake.config['sampler']['narrow']:
-        theta_proposed = draw_theta_unbound(theta,sigma,lower_bound=0,upper_bound=theta_upper_bound)
-    elif not snakemake.config['sampler']['narrow']:
-        theta_proposed = draw_theta(theta,sigma,lower_bound=0,upper_bound=theta_upper_bound)
-    else :
-        raise ValueError('sampler, narrow, not defined in config file')
+    #if snakemake.config['sampler']['narrow']:
+    theta_proposed = draw_theta_unbound(theta,sigma,lower_bound=0,upper_bound=theta_upper_bound)
+    #elif not snakemake.config['sampler']['narrow']:
+    #    theta_proposed = draw_theta(theta,sigma,lower_bound=0,upper_bound=theta_upper_bound)
+    #else :
+    #    raise ValueError('sampler, narrow, not defined in config file')
     
     co2_alocations = co2_budget*theta_proposed
     co2_alocations ={v:t for v,t in zip(mcmc_variables,co2_alocations)}
@@ -210,15 +215,15 @@ def sample(network):
     network = solve_network.solve_network(network)
     cost_i = network.objective 
 
-    if snakemake.config['sampler']['narrow']:
+    #if snakemake.config['sampler']['narrow']:
     # Calculate pr_i based on MGA slack 
-        pr_i = calc_pr(network,cost_i)
-    elif not snakemake.config['sampler']['narrow']:
+    #    pr_i = calc_pr(network,cost_i)
+    #elif not snakemake.config['sampler']['narrow']:
         # Calculate pr_i based on co2 emissions allone 
-        base_emission = snakemake.config['base_emission']
-        pr_i = calc_pr_narrow_co2(network,base_emission,co2_budget)
-    else :
-        raise ValueError('sampler, narrow, not defined in config file')
+    base_emission = snakemake.config['base_emission']
+    pr_i = calc_pr_narrow_co2(network,base_emission,co2_budget)
+    #else :
+    #    raise ValueError('sampler, narrow, not defined in config file')
 
 
     return network, pr_i, theta_proposed , theta
@@ -239,11 +244,11 @@ if __name__=='__main__':
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
-            snakemake = mock_snakemake('run_single_chain',chain=0,sample=6,run_name='mcmc_test')
+            snakemake = mock_snakemake('run_single_chain',chain=0,sample=6,run_name='test')
             #os.chdir('..')
         except :
             os.chdir('..')
-            snakemake = mock_snakemake('run_single_chain',chain=0,sample=6,run_name='mcmc_test')
+            snakemake = mock_snakemake('run_single_chain',chain=0,sample=6,run_name='test')
 
     import builtins 
     builtins.snakemake = snakemake
