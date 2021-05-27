@@ -42,6 +42,7 @@ solver = {
   "formulation": 'kirchhoff',
   "pyomo": False,
   "keep_shadowprices": True,
+  "keep_references": True,
   "solver_options": {
     "threads": 4,
     "method": 2, # barrier

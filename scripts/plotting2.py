@@ -67,7 +67,9 @@ df_names = dict(df_sum='result_sum_vars.csv',
                 df_storage_E='result_storeage_unit_E.csv',
                 df_storage_P='result_storeage_unit_P.csv',
                 df_nodal_cost='result_nodal_costs.csv',
-                df_theta='result_theta.csv'
+                df_theta='result_theta.csv',
+                df_nodal_el_price='result_bus_nodal_price.csv',
+                df_nodal_co2_price='result_national_co2_dual.csv',
                 )
 
 df_sum=pd.DataFrame()
@@ -126,7 +128,7 @@ if load_sweep_data :
     networks_sweep = {}
     for year in years:
         #run_name = f'sweep_{sector}_{year[:4]}'
-        run_name = 'aloc_scenarios'
+        run_name = 'mcmc_2030_aloc'
         #run_name = 'h99_model'
         networks_sweep[year] = pypsa.Network(f'results/{run_name}/network_c0_s1.nc',override_component_attrs=override_component_attrs)
 
@@ -220,9 +222,12 @@ def create_networks_dataframes(networks):
     links = remove_duplicates(links)
 
     stores = pd.concat([networks[n].stores for n in networks]).drop_duplicates()
-    stores = remove_duplicates(links)
+    stores = remove_duplicates(stores)
 
-    return generators, links, stores
+    storage_units = pd.concat([networks[n].storage_units for n in networks]).drop_duplicates()
+    storage_units = remove_duplicates(storage_units)
+
+    return generators, links, stores, storage_units
 
 def calc_autoarky(generators,links):
     # Soverignity 
@@ -316,7 +321,7 @@ def update_secondary_data(df_secondary):
 
     return df_secondary
 
-generators, links, stores = create_networks_dataframes(networks)
+generators, links, stores, storage_units = create_networks_dataframes(networks)
 df_secondary = update_secondary_data(df_secondary)
 if df_secondary_sweep.size != 0: 
     df_secondary_sweep = update_secondary_data(df_secondary_sweep)
@@ -384,9 +389,9 @@ def calc_country_dfs():
         m_index = pd.MultiIndex.from_tuples(index)
         df.columns = m_index
 
-    set_multiindex(df_links_E,network.links)
-    set_multiindex(df_gen_e,network.generators)
-    set_multiindex(df_storage_E,network.storage_units)
+    set_multiindex(df_links_E,links)
+    set_multiindex(df_gen_e,generators)
+    set_multiindex(df_storage_E,storage_units)
     #node_energy = df_links_E.groupby(level=[1,2],axis=1).sum()
 
     # Filter any non electricity producting generators out of the df_gen_e dataframe 
@@ -398,7 +403,7 @@ def calc_country_dfs():
 
     # Multiply generating links with their efficiency 
     link_generators_energy = df_links_E.loc[:,(slice(None),slice(None),energy_generating_links)] 
-    eff = network.links.loc[link_generators_energy.columns.get_level_values(0)].efficiency.values
+    eff = links.loc[link_generators_energy.columns.get_level_values(0)].efficiency.values
     link_generators_energy = link_generators_energy*eff
     link_consumors_energy = - df_links_E.loc[:,(slice(None),slice(None),energy_consuming_links)] 
 
@@ -406,7 +411,7 @@ def calc_country_dfs():
 
     df_country_energy = df_energy.groupby(level=[1],axis=1).sum()
 
-    df_country_load = network.loads_t.p.groupby(network.buses.country,axis=1).sum().sum()
+    df_country_load = network.loads_t.p.sum().groupby(network.buses.country).sum()
 
     df_country_k = df_country_energy/df_country_load
 
@@ -438,7 +443,7 @@ df_secondary['energy_dependance'] = df_energy_dependance
 # ###########################################
 # ####### Corrolelogram cost vs co2 #########
 
-def plot_cost_vs_co2(prefix='',save=False,title= 'Cost vs emission reduction',plot_sweep=False):
+def plot_cost_vs_co2(prefix='',save=False,title= 'Cost vs emission reduction',plot_sweep=False,plot_optimum=False):
 
     co2_emis_levels = {'2030':1-0.45,
                         '2030_o':1-0.45,
@@ -461,12 +466,13 @@ def plot_cost_vs_co2(prefix='',save=False,title= 'Cost vs emission reduction',pl
     cost_limits = [df['system_cost'].min(),df['system_cost'].max()]
     co2_limits = [df['co2 reduction'].min(),df['co2 reduction'].max()]
 
-    def plot_optimum(xdata,ydata,**kwargs):
+    def sweep_plot(xdata,ydata,**kwargs):
         plt.gca()
         sns.scatterplot(data=df_optimal,
                             x='co2 reduction',
                             y='system_cost',
-                            hue='year',
+                            size=30,
+                            #hue='year',
                             markers=['X'],
                             palette='Set1' #'Set1'
                             )
@@ -481,6 +487,14 @@ def plot_cost_vs_co2(prefix='',save=False,title= 'Cost vs emission reduction',pl
         #                 xmin=co2_limits[0],
         #                 xmax=co2_limits[1],
         #                 colors=kwargs['color'])
+
+    def optimum_plot(xdata,ydata,**kwargs):
+        plt.gca()
+        plt.plot(df_optimum['co2 reduction'],
+                df_optimum['system_cost'],
+                        marker='X',
+                        mfc='r',
+                        markersize=20)
 
     sns_plot = sns.pairplot(df, 
                             vars=['co2 reduction','system_cost'],
@@ -502,16 +516,23 @@ def plot_cost_vs_co2(prefix='',save=False,title= 'Cost vs emission reduction',pl
         df_optimal['co2 emission'] = df_store_P_sweep['co2 atmosphere']
         df_optimal['co2 reduction'] = 1-(df_optimal['co2 emission']/base_emis )
         df_optimal['year'] = df_co2_sweep['year']
-        sns_plot.map_lower(plot_optimum)
+        sns_plot.map_lower(sweep_plot)
+
+    if plot_optimum:
+        index_optimum = df_chain.query('c==1 & s==1').index
+        df_optimum = df.iloc[index_optimum]
+        sns_plot.map_lower(optimum_plot)
+
     #sns_plot.axes[0,0].set_ylim((0.45,1))
-    sns_plot.axes[1,1].set_ylim(0.53e11,0.55e11)
-    sns_plot.axes[1,0].set_xlim((0.54,0.56))
+    #sns_plot.axes[1,1].set_ylim(0.53e11,0.55e11)
+    sns_plot.axes[1,0].set_xlim((0.908,0.92))
+    
     sns_plot.map_lower(lambda xdata, ydata, **kwargs:plt.gca().vlines(co2_emis_levels[kwargs['label']],ymin=cost_limits[0],ymax=cost_limits[1],colors=kwargs['color']))
     if save:
         sns_plot.savefig(f'graphics/cost_vs_co2_{prefix}.jpeg')
 
 
-plot_cost_vs_co2(save=True,prefix=prefix,plot_sweep=True)
+plot_cost_vs_co2(save=True,prefix=prefix,plot_sweep=False,plot_optimum=True)
 
 #%%################## corrolelogram tech energy #######################
 #######################################################################
@@ -519,16 +540,19 @@ plot_cost_vs_co2(save=True,prefix=prefix,plot_sweep=True)
 def plot_corrolelogram_tech_energy(prefix='',save=False,
     technologies = {'wind':['offwind','offwind-ac','offwind-dc','onwind'],
                     'lignite + coal' : ['lignite','coal'],
-                    'OCGT + CCGT': ['OCGT','CCGT'],
+                    'gas': ['OCGT','CCGT'],
                     'solar':['solar','solar rooftop'],
-                    'H2':['H2 Fuel Cell','H2 Electrolysis','H2_store'],
-                    'battery':['battery charger','battery discharger','battery_store']},
+                    #'H2':['H2 Fuel Cell','H2 Electrolysis','H2_store'],
+                    'H2':['H2 Fuel Cell',],
+                    #'battery':['battery charger','battery discharger','battery_store']
+                    'battery':['battery discharger']
+                    },
                     title='Technology energy production'):
 
     df = df_chain[['year']]
     for key in technologies: 
-        df[key] = df_tech_e_sum[technologies[key]].sum(axis=1)
-
+        #df[key] = df_tech_e_sum[technologies[key]].sum(axis=1)
+        df[key] = df_energy.loc[:,(slice(None),slice(None),technologies[key])].sum(axis=1)
 
     sns_plot = sns.pairplot(df, kind="hist", diag_kind='hist',hue='year',
                             plot_kws=dict(bins=30),
@@ -802,41 +826,53 @@ def plot_geo(df,title):
 #%%################### box plot ############################
 ###############################################################
 
-def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co2_box',ylabel='CO2 emission'):
+def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co2_box',ylabel='CO2 emission',ylim=None):
     #df_wide = co2_pr_pop
     model_countries = network.buses.country.unique()[:33]
     df = pd.melt(df_wide,value_vars=model_countries,id_vars='year',var_name='Country')
     #df = df.query('year == 2030 | year == 2050')
 
     f,ax = plt.subplots(figsize=(30,10))
-    sns_plot = sns.boxplot(x='Country', y="value", hue="year",
-                        data=df, palette="muted",order=df_wide.columns,
+    sns_plot = sns.boxplot(x='Country', y="value", hue_order=model_countries, #hue="year",
+                        data=df, palette="muted",order=df_wide.columns[:-1],
                         ax=ax)
     if df_wide_optimal is not None:
         df_optimal = pd.melt(df_wide_optimal,value_vars=model_countries,id_vars='year',var_name='Country')
-        sns.stripplot(x='Country',y='value',hue='year',
+        sns.stripplot(x='Country',y='value',#hue='Country',
                         data=df_optimal,
-                        order=df_wide.columns,
+                        order=df_wide.columns[:-1],
                         jitter=0,
                         color='red',
                         marker='X',
                         size=10,
                         ax=ax)
 
+
     plt.ylabel(ylabel)
     plt.suptitle(title)
 
+    if ylim != None:
+        plt.ylim(ylim)
+
     if save:
-        plt.savefig(f'graphics/{name}_{prefix}.jpeg')
+        plt.savefig(f'graphics/{name}_{prefix}.png',transparent=True)
 
 
 #%%
 
+index_order = df_co2.mean().sort_values().index
+
+#%%
 def plot_co2_box():
 
     #df = df_co2/df_country_energy
     df = df_co2
     df['year'] = df_chain[['year']]
+
+    # assign new sort order 
+    #df = df[df.mean().sort_values().index]
+    df = df[index_order]
+    df['year'] = df_chain['year']
 
     optimal_index = df_chain.query('s == 1 & c == 0').index
     df_optimal = df.iloc[optimal_index]
@@ -858,10 +894,36 @@ def plot_unused_co2():
 
     df = df.iloc[:,:33] - df_co2.iloc[:,:33]
 
+    df = df[df.mean().sort_values().index]
+    df['year'] = df_chain['year']
+
     df['year'] = df_chain['year']
     plot_box(df,title='Unused Co2',prefix=prefix,name='unused_co2',save=True)
 
 plot_unused_co2()
+
+
+#%%
+
+def plot_allocated_co2():
+
+    df = df_theta.copy()
+    df.columns=mcmc_variables
+
+
+    for year in networks:
+        co2_budget = networks[year].global_constraints.loc['CO2Limit'].constant
+        df.loc[df_chain.year == year] = df.loc[df_chain.year == year].multiply(co2_budget)
+
+    df = df.iloc[:,:33] #- df_co2.iloc[:,:33]
+
+    df = df[df.mean().sort_values().index]
+    df['year'] = df_chain['year']
+
+    #df['year'] = df_chain['year']
+    plot_box(df,title='Allocated Co2',prefix=prefix,name='allocated_co2',save=True)
+
+plot_allocated_co2()
 
 #%%
 
@@ -870,7 +932,8 @@ def plot_co2_pr_mwh_box():
     df = df_co2/df_country_energy
     df['year'] = df_chain['year']
 
-    df = df[df.mean().sort_values().index]
+    #df = df[df.mean().sort_values().index]
+    df = df[index_order]
     df['year'] = df_chain['year']
 
     optimal_index = df_chain.query('s == 1 & c == 0').index
@@ -881,7 +944,45 @@ def plot_co2_pr_mwh_box():
 #plt.ylim((0,5e4))
 plot_co2_pr_mwh_box()
 
-#%%
+
+#%% Box elec price
+
+df = df_nodal_el_price.copy()
+#df['year'] = df_chain['year']
+
+df.columns = [network.buses.loc[b].country for b in df_nodal_el_price.columns]
+df = df.iloc[:,df.columns != '']
+df = df.groupby(df.columns,axis=1).mean()
+
+df = df[index_order]
+
+df['year'] = df_chain['year']
+df = df.reindex()
+
+plot_box(df,ylabel='€/MWh',title='Elec price',save=True,prefix=prefix,name='elec_price',ylim=(0,100))
+
+#%% Box Co2 price
+
+
+df = df_nodal_co2_price.copy()
+#df['year'] = df_chain['year']
+
+#df.columns = [network.buses.loc[b].country for b in df_nodal_el_price.columns]
+#df = df.iloc[:,df.columns != '']
+#df = df.groupby(df.columns,axis=1).mean()
+
+df = df[index_order]
+
+df['year'] = df_chain['year']
+df = df.reindex()
+
+
+
+plot_box(df,ylabel='€/T',title='CO2 price',save=True,prefix=prefix,name='co2_price',ylim=(0,100))
+
+
+
+#%% New take on secondary metrics plot
 
 metrics={'system cost':['system_cost'],
         'inequality energy production':['gini'],
