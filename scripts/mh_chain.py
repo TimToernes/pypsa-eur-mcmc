@@ -170,7 +170,7 @@ def calc_150p_coal_emis(network,emis_factor=1.5):
 
 def sample(network):
 
-    tmpdir = snakemake.config['tmpdir']
+    tmpdir = snakemake.config['solving'].get('tmpdir')
     if tmpdir is not None:
         patch_pyomo_tmpdir(tmpdir)
 
