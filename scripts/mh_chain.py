@@ -244,11 +244,11 @@ if __name__=='__main__':
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
-            snakemake = mock_snakemake('run_single_chain',chain=0,sample=6,run_name='test')
+            snakemake = mock_snakemake('run_single_chain',chain=0,sample=1021,run_name='mcmc_2030')
             #os.chdir('..')
         except :
             os.chdir('..')
-            snakemake = mock_snakemake('run_single_chain',chain=0,sample=6,run_name='test')
+            snakemake = mock_snakemake('run_single_chain',chain=0,sample=1021,run_name='mcmc_2030')
 
     import builtins 
     builtins.snakemake = snakemake
@@ -256,7 +256,7 @@ if __name__=='__main__':
 
     # Get the sample number of the input network file
     pre,file = os.path.split(snakemake.input[0])
-    sample_input = int(re.search('s([0-9]?[0-9]?[0-9])',file).group()[1:])
+    sample_input = int(re.search('s([0-9]?[0-9]?[0-9]?[0-9])',file).group()[1:])
 
     # Sample itteratively until the desired sample number is reached
     n_sample = sample_input

@@ -67,8 +67,8 @@ rule data_postprocess:
     input:
         expand("inter_results/{run_name}/network_c{chain}_s{sample}.nc",chain=chains,sample=config['sampler']['samples'],run_name=config['run_name']),
         sigma = 'inter_results/{run_name}/sigma_s{sample}.csv'.format(run_name=config['run_name'],sample=config['sampler']['samples'])
-    threads: 36
-    resources: mem='370G', partition='q64,q36'
+    threads: 32
+    resources: mem='400G', partition='q64,q36,q32'
     script:
         'scripts/data_postprocessing.py'
 
