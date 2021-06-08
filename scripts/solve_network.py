@@ -365,7 +365,10 @@ def solve_network(n, config=None, solver_log=None, opts=None):
         #n.model.write('/home/ka/ka_iai/ka_kc5996/projects/pypsa-eur/128-B-I.mps', format=ProblemFormat.mps)
         #print("Model is saved to MPS")
         #sys.exit()
-        tmpdir = snakemake.config['solving'].get('tmpdir')
+        try :
+            tmpdir = '/scratch/'+os.environ['SLURM_JOB_ID']
+        except :
+            tmpdir = snakemake.config['solving'].get('tmpdir')
 
         status, termination_condition = n.lopf(pyomo=False,
                                                solver_name=solver_name,
