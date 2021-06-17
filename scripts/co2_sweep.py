@@ -102,9 +102,9 @@ if __name__ == '__main__':
     snakemake.config['use_local_co2_constraints'] = True
     snakemake.config['local_emission_constraints'] = allowable_emis
 
-    for co2_red in np.linspace(0.5,0,50):
+    for co2_red in np.linspace(0.45,0.80,50):
 
-        network.global_constraints.constant=snakemake.config['co2_budget']*co2_red
+        network.global_constraints.constant=snakemake.config['base_emission']*(1-co2_red)
         # solve network to get optimum solution
         network = set_link_locations(network)
         network = solve_network.solve_network(network)

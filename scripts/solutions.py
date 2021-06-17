@@ -64,7 +64,10 @@ class solutions:
             a = network.accepted
             self.df_chain = pd.DataFrame(data=dict(c=[c],s=[s],a=[a]))
         except : 
-            self.df_chain = pd.DataFrame()
+            c = 0
+            s = 0
+            a = 1
+            self.df_chain = pd.DataFrame(data=dict(c=[c],s=[s],a=[a]))
 
         if manager != None:
             self.queue = manager.Queue()
