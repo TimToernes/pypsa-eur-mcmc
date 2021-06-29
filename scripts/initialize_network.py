@@ -23,7 +23,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import solve_network
 import pickle
-#import pandas as pd
+import pandas as pd
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
 override_component_attrs["Link"].loc["bus2"] = ["string",np.nan,np.nan,"2nd bus","Input (optional)"]
@@ -109,6 +109,15 @@ def set_link_locations(network):
     return network
 
 
+def draw_random_theta(network):
+    r_theta = pd.read_csv('data/example_thetas_2030.csv',index_col=0).sample(1).values[0]
+    return r_theta 
+
+
+
+
+
+
 #%%
 if __name__ == '__main__':
 
@@ -133,7 +142,7 @@ if __name__ == '__main__':
     network = pypsa.Network(snakemake.input.network, 
                             override_component_attrs=override_component_attrs)
     network = set_link_locations(network)
-    network.global_constraints.constant=snakemake.config['co2_budget']
+    network.global_constraints.mu['CO2Limit'] = snakemake.config['co2_budget']
     # Store parameters in the network object
     network.mga_slack = snakemake.config.get('mga_slack')
 
@@ -179,7 +188,8 @@ if __name__ == '__main__':
     theta = np.array([country_emis[v] for v in mcmc_variables])/co2_budget
     network.theta = theta_to_str(theta)
     network.export_to_netcdf(f"results/{snakemake.config['run_name']}/network_c0_s1.nc")
-
+    
+    network.global_constraints.mu['CO2Limit'] = int(snakemake.config['co2_budget'])*2 
     # Save the starting point for each chain
     for i,p in enumerate(snakemake.output[:-2]):
 
@@ -188,6 +198,10 @@ if __name__ == '__main__':
         pickle.dump((network.duals,network.dualvalues),open(network.dual_path, "wb" ))
         network.chain = i
         network.sample = 1
+
+        r_theta = draw_random_theta(network)
+        network.theta = theta_to_str(r_theta)
+
         network.export_to_netcdf(p)
 
 # %%
