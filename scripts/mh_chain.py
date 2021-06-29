@@ -195,7 +195,8 @@ def sample(network):
         
     sigma = np.genfromtxt(snakemake.input[1])
     allowable_emis = calc_150p_coal_emis(network)
-    allowable_emis['EU'] = co2_budget # Allow EU to have all the CO2 budget. This has no real implications 
+    #allowable_emis['EU'] = co2_budget # Allow EU to have all the CO2 budget. This has no real implications 
+    allowable_emis['EU'] = 0
 
     theta_upper_bound = [allowable_emis[key]/co2_budget for key in mcmc_variables] 
     
