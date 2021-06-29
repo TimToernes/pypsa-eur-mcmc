@@ -245,11 +245,11 @@ if __name__=='__main__':
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         try:
-            snakemake = mock_snakemake('run_single_chain',chain=0,sample=1021,run_name='mcmc_2030')
+            snakemake = mock_snakemake('run_single_chain',chain=0,sample=3081,run_name='mcmc_2030')
             #os.chdir('..')
         except :
             os.chdir('..')
-            snakemake = mock_snakemake('run_single_chain',chain=0,sample=1021,run_name='mcmc_2030')
+            snakemake = mock_snakemake('run_single_chain',chain=0,sample=3081,run_name='mcmc_2030')
 
     import builtins 
     builtins.snakemake = snakemake

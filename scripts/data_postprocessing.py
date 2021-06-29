@@ -1,4 +1,6 @@
 #%%
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import pypsa
 import os 
 import csv
@@ -61,7 +63,9 @@ if __name__=='__main__':
             #os.chdir('..')
             
     #configure_logging(snakemake,skip_handlers=True)
-
+    import logging
+    import sys
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
     dir_lst = os.listdir(f'inter_results/{snakemake.config["run_name"]}/')
     network = pypsa.Network(snakemake.input[0],override_component_attrs=override_component_attrs)
@@ -74,23 +78,41 @@ if __name__=='__main__':
     for file in dir_lst:
         q_in.put(file)
 
-    processes = []
-    for i in range(snakemake.threads):
-        p = mp.Process(target=worker,args=(q_in,sol,q_proc_done))
-        p.start()
-        processes.append(p)
     
-    while q_proc_done.qsize()<snakemake.threads:
+    print(f'starting {snakemake.threads-2} jobs')
+    processes = []
+    for i in range(snakemake.threads-2):
+        #logging.info(1)
+        p = mp.Process(target=worker,args=(q_in,sol,q_proc_done))
+        #logging.info(2)
+        p.start()
+        #logging.info(3)
+        processes.append(p)
+        logging.info(f'Started job {i} with name {p.pid}')
+    logging.info(f'started {len(processes)} jobs')
+
+    timeout_time = 60*60*3 #3 hours in seconds 
+
+    timer = time.time()
+    time_diff = time.time()-timer
+    logging.info(f'Waiting for jobs to finish')
+    while q_proc_done.qsize()<len(processes) or time_diff<timeout_time:
+        time_diff = time.time()-timer
         time.sleep(1)
 
+    if time_diff>timeout_time:
+        logging.warning('Timed out')
+    
+    logging.info(f'marging solutions ')
+    sol.merge()
+
+    sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
+
+    logging.info(f'joining processes')
     for p in processes:
         p.kill()
         p.join()
 
-    sol.merge()
-
-
-    sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
 
     #copyfile(f'inter_results/{snakemake.config["run_name"]}/theta.csv',f'results/{snakemake.config["run_name"]}/theta.csv')
     
