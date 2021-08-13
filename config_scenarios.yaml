@@ -3,8 +3,8 @@ logging:
   level: INFO
   format: '%(levelname)s:%(name)s:%(message)s'
 
-run_name: 'sweep_2030_f'
-configfile: 'config_sweep.yaml'
+run_name: 'scenarios_2030_f'
+configfile: 'config.yaml'
 network: 'data/networks/elec_s_37_lv1__Co2L0p55-3H-solar+p3_2030_f.nc'
 
 planning_horizons : 2030
@@ -20,9 +20,9 @@ base_emission: 1481895952.8 # 1990 Emissions for elec sector scenario
 
 sampler:
   chains: 10
-  samples: 4001 # has to be a multiple of batch + 1
-  eps: 0.02
-  batch: 20
+  samples: 3501 # has to be a multiple of batch + 1
+  eps: 0.5
+  batch: 10
 
 
 use_local_co2_constraints: false
