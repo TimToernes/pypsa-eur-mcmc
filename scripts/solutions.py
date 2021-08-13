@@ -120,7 +120,12 @@ class solutions:
 
             for df_name in self.df_list:
                 part_res_df = getattr(part_res,df_name)
-                self.__dict__[df_name] = self.__dict__[df_name].append(part_res_df,ignore_index=True)
+
+                if part_res_df.shape[0] == 0 : 
+                    # If the part res dataframe is 
+                    self.__dict__[df_name] = self.__dict__[df_name].append(pd.Series(),ignore_index=True)
+                else :
+                    self.__dict__[df_name] = self.__dict__[df_name].append(part_res_df,ignore_index=True)
 
 
     def save_csv(self, file_prefix='sol'):
