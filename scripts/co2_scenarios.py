@@ -50,6 +50,8 @@ if __name__ == '__main__':
 
     co2_totals = pd.read_csv('data/co2_totals.csv',index_col=0)
 
+    co2_targets = pd.read_excel('data/co2_targets.xlsx',index_col=0)
+
     co2_base_emis = co2_totals.loc[cts, "electricity"].sum()
 
     co2_red = snakemake.config['co2_budget']/(co2_base_emis*1e6)
@@ -62,8 +64,32 @@ if __name__ == '__main__':
 
     local_load = load/sum(load)*co2_base_emis*co2_red*1e6
 
-    emis_alloc_schemes = {'local_load':local_load,'local_1990':local_1990,'optimum':None}
 
+    # Emission share from elec sector assumed to be 35 %, based on 
+    # calculation below 
+    # co2_totals.loc['EU28']['electricity']/co2_totals.loc['EU28'].sum()
+
+    # Total emission reductions relative to 1990 is only expected to be 
+    # 30% according to the following calculation
+    # (co2_targets[1990].sum()-co2_targets['2030 targets'].sum())/co2_targets[1990].sum()
+
+
+    EU_ETS_country_share = co2_targets['2030 targets']/co2_targets['2030 targets'].sum()
+
+    eu_ets_target = EU_ETS_country_share * co2_base_emis* (1-0.30) * 1e6 
+
+    # For the countries not part of the EU ETS, set the allowable emissions 
+    # to be a high number such that the constraint is not binding
+    i_non_ets = set(cts).difference(set(EU_ETS_country_share.index))
+    i_non_model = set(EU_ETS_country_share.index).difference(set(cts))
+
+    for c in i_non_ets:
+        eu_ets_target[c] = co2_base_emis*1e6 
+
+    for c in i_non_model:
+        eu_ets_target.pop(c)
+
+    emis_alloc_schemes = {'local_load':local_load,'local_1990':local_1990,'optimum':None,'eu_ets_2018':eu_ets_target}
 
 
     for emis_alloc in emis_alloc_schemes:
