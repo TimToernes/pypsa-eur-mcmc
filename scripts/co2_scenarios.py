@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     co2_totals = pd.read_csv('data/co2_totals.csv',index_col=0)
 
-    co2_targets = pd.read_excel('data/co2_targets.xlsx',index_col=0)
+    co2_targets = pd.read_csv('data/co2_targets.csv',index_col=0)
 
     co2_base_emis = co2_totals.loc[cts, "electricity"].sum()
 
