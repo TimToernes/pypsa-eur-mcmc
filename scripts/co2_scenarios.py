@@ -111,12 +111,6 @@ if __name__ == '__main__':
         network = set_link_locations(network)
         network = solve_network.solve_network(network)
 
-        try : 
-            sol.put(network)
-        except Exception:
-            man = mp.Manager()
-            sol = solutions(network, man)
-
         p = f'inter_results/{snakemake.config["run_name"]}/network_{co2_red*100:.0f}_{emis_alloc}.nc'
 
         if not os.path.exists(f'inter_results/{snakemake.config["run_name"]}/'):
@@ -127,6 +121,13 @@ if __name__ == '__main__':
         duals = network.dualvalues
         pickle.dump((network.duals,network.dualvalues),open(network.dual_path, "wb" ))
         network.export_to_netcdf(p)
+
+        try : 
+            sol.put(network)
+        except Exception:
+            man = mp.Manager()
+            sol = solutions(network, man)
+
 
 
     sol.merge()
