@@ -15,6 +15,7 @@ import pickle
 import pandas as pd 
 from solutions import solutions
 import multiprocessing as mp
+import time
 
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
@@ -39,7 +40,7 @@ if __name__ == '__main__':
 
     builtins.snakemake = snakemake
 
-
+    
 
     network = pypsa.Network(snakemake.input.network, 
                             override_component_attrs=override_component_attrs)
@@ -98,8 +99,7 @@ if __name__ == '__main__':
 
         network.global_constraints.constant['CO2Limit'] = snakemake.config['co2_budget']
         if emis_alloc == 'optimum':
-            snakemake.config['use_local_co2_constraints'] = False
-            
+            snakemake.config['use_local_co2_constraints'] = False            
         else : 
             try :
                 country_emis['EU']
@@ -128,8 +128,7 @@ if __name__ == '__main__':
             man = mp.Manager()
             sol = solutions(network, man)
 
-
-
+    time.sleep(10)
     sol.merge()
 
     try :
