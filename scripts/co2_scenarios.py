@@ -55,7 +55,8 @@ if __name__ == '__main__':
 
     co2_base_emis = co2_totals.loc[cts, "electricity"].sum()
 
-    co2_red = snakemake.config['co2_budget']/(co2_base_emis*1e6)
+    co2_budget = snakemake.config['co2_budget']
+    co2_red = co2_budget/(co2_base_emis*1e6)
 
     national_co2 = co2_totals.loc[cts, "electricity"]
 
@@ -65,6 +66,8 @@ if __name__ == '__main__':
 
     local_load = load/sum(load)*co2_base_emis*co2_red*1e6
 
+    mcmc_variables = network.buses.country.unique()
+    mcmc_variables[np.where(mcmc_variables == '')] = 'EU'
 
     # Emission share from elec sector assumed to be 35 %, based on 
     # calculation below 
@@ -101,6 +104,7 @@ if __name__ == '__main__':
         if emis_alloc == 'optimum':
             snakemake.config['use_local_co2_constraints'] = False            
         else : 
+            
             try :
                 country_emis['EU']
             except :
@@ -116,10 +120,19 @@ if __name__ == '__main__':
         if not os.path.exists(f'inter_results/{snakemake.config["run_name"]}/'):
             os.mkdir(f'inter_results/{snakemake.config["run_name"]}/')
 
+        if emis_alloc == 'optimum':
+            country_emis = get_country_emis(network)
+            theta = np.array([country_emis[v] for v in mcmc_variables[:-1]])/co2_budget
+
+        else : 
+            theta = np.array([country_emis[v] for v in mcmc_variables[:-1]])/co2_budget
+
+
         network.name = os.path.relpath(os.path.normpath(p))
         network.dual_path = network.name[:-2]+'p'
         duals = network.dualvalues
         pickle.dump((network.duals,network.dualvalues),open(network.dual_path, "wb" ))
+        network.theta = theta_to_str(theta)
         network.export_to_netcdf(p)
 
         try : 

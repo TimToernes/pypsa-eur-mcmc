@@ -1,6 +1,5 @@
 #%%
-%load_ext autoreload
-%autoreload 2
+
 import pypsa
 import os
 import numpy as np
@@ -13,15 +12,16 @@ import seaborn as sns
 from _mcmc_helpers import *
 from _helpers import make_override_component_attrs, get_tech_colors
 from data_process import data_postprocess
-
 import plotly.graph_objects as go
+
+%load_ext autoreload
+%autoreload 2
 
 if os.path.split(os.getcwd())[1] == 'scripts':
     os.chdir('..')
 
-
 #%%#################### import datasets ####################################
-############################################################################
+######################## import datasets ###################################
 
 prefix = '2030_elec_f'
 sector = 'e'
@@ -77,7 +77,7 @@ def import_datasets(datasets):
                 dfs[df_name] = df
                 #vars()[df_name] = dfs[df_name]
 
-    network = networks[datasets[0]]
+    #network = networks[datasets[0]]
     dfs['mcmc_variables'] = read_csv(networks[run_name].mcmc_variables)
     dfs['mcmc_variables'] = [row[0]+row[1] for row in dfs['mcmc_variables']]
 
@@ -96,14 +96,26 @@ dfs,networks = import_datasets(datasets)
 network = list(networks.values())[0]
 
 #%%##### Data postprocessing #################
-############################################
-############################################
+######### Data postprocessing ################
 
-data_postprocess(dfs,networks,base_emis)
+data_postprocess(dfs,networks,base_emis,co2_red=0.45)
 
 # Filters 
 filt_co2_cap = dfs['df_co2'].sum(axis=1)<=base_emis*0.448
 filt_burnin = dfs['df_chain'].s>burnin_samples
+
+
+
+# Correction of wrong optimal solution 
+#i_optimum = 31232
+
+i_sweep = dfs['df_chain'].query('year == "sweep_2030_f"').index
+i_optimum = dfs['df_secondary'].iloc[i_sweep].query('co2_reduction <= 55 & co2_reduction >= 54.999').index 
+
+i_s1 = dfs['df_chain'].query('s==1').index
+for df in dfs:
+    if df not in ['mcmc_variables','df_country_pop','df_gdp','df_pop','df_country_gdp','df_country_load','df_chain']:
+        dfs[df].iloc[i_s1] = dfs[df].iloc[i_optimum]
 
 
 #%%############# plots #############################
@@ -125,12 +137,14 @@ def plot_cost_vs_co2(prefix='',save=False,
     df['co2 reduction'] = 1-(df['co2 emission']/base_emis )
     #df['co2 reduction'] = (1-df_co2.sum(axis=1)/base_emis)*100
     df['year'] = dfs['df_chain']['year']
+
+    df.rename(columns={'cost_increase':'Cost increase','co2 reduction':'CO2 reduction'},inplace=True)
     #df = df[dfs['df_chain'].a==1]
 
     # Create dataframe with optimal solution
     if plot_optimum:
-        #index_optimum = dfs['df_chain'].query('c==1 & s==1').index
-        index_optimum = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+        index_optimum = dfs['df_chain'].query('c==1 & s==1').index
+        #index_optimum = dfs['df_chain'].query('year == "scenarios_2030_f"').index
         df_optimum = df.iloc[index_optimum]
 
     if plot_sweep:
@@ -141,15 +155,15 @@ def plot_cost_vs_co2(prefix='',save=False,
     #df = df[ filt_burnin & filt_co2_cap]
     df = df[ filt_burnin ]
 
-    cost_limits = [df['cost_increase'].min(),df['cost_increase'].max()]
-    co2_limits = [df['co2 reduction'].min(),df['co2 reduction'].max()]
+    cost_limits = [df['Cost increase'].min(),df['Cost increase'].max()]
+    co2_limits = [df['CO2 reduction'].min(),df['CO2 reduction'].max()]
 
     def sweep_plot(xdata,ydata,**kwargs):
         plt.gca()
         styles = ['bD','ms']
         #for i in range(2):
-        plt.plot(df_sweep['co2 reduction'],
-                df_sweep['cost_increase'],
+        plt.plot(df_sweep['CO2 reduction'],
+                df_sweep['Cost increase'],
                         #styles[i],
                         #marker='D',
                         #mfc='g',
@@ -166,14 +180,14 @@ def plot_cost_vs_co2(prefix='',save=False,
 
     def optimum_plot(xdata,ydata,**kwargs):
         plt.gca()
-        plt.plot(df_optimum['co2 reduction'],
-                df_optimum['cost_increase'],
+        plt.plot(df_optimum['CO2 reduction'],
+                df_optimum['Cost increase'],
                         marker='X',
                         mfc='r',
                         markersize=20)
 
     sns_plot = sns.pairplot(df, 
-                            vars=['co2 reduction','cost_increase'],
+                            vars=['CO2 reduction','Cost increase'],
                             kind="hist", 
                             diag_kind='hist',
                             #hue='year',
@@ -184,7 +198,7 @@ def plot_cost_vs_co2(prefix='',save=False,
                             palette='Set2')
     plt.suptitle(title)
 
-    cost_limits = [df['cost_increase'].min(),df['cost_increase'].max()]
+    cost_limits = [df['Cost increase'].min(),df['Cost increase'].max()]
     sns_plot.map_lower(plot_lower)
 
     if plot_sweep:
@@ -201,6 +215,397 @@ def plot_cost_vs_co2(prefix='',save=False,
 
 
 plot_cost_vs_co2(save=True,prefix=prefix,plot_sweep=True,plot_optimum=True)
+
+#%%############ Plot Boxplots ############################
+
+def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co2_box',ylabel='CO2 emission',ylim=None,**kwargs):
+    #df_wide = co2_pr_pop
+    model_countries = network.buses.country.unique()[:33]
+    df = pd.melt(df_wide,value_vars=model_countries,id_vars='year',var_name='Country')
+    #df = df.query('year == 2030 | year == 2050')
+
+    f,ax = plt.subplots(figsize=(11,4.5))
+    sns_plot = sns.boxplot(x='Country', y="value", #hue_order=model_countries, #hue="year",
+                        data=df, 
+                        #palette="muted",
+                        order=df_wide.columns[:-1],
+                        ax=ax,
+                        **kwargs)
+
+    if df_wide_optimal is not None:
+        df_optimal = pd.melt(df_wide_optimal,value_vars=model_countries,id_vars=['year','scenario'],var_name='Country')
+        sns.stripplot(x='Country',y='value',#hue='Country',
+                        data=df_optimal,
+                        order=df_wide.columns[:-1],
+                        jitter=0,
+                        hue='scenario',
+                        #palette={'local load':'g','local 1990':'orange','Optimum unconstrained':'c','Optimum':'r','EU ETS':'b'},
+                        palette='Dark2',
+                        size=5,
+                        ax=ax,)
+
+
+    plt.ylabel(ylabel)
+    plt.suptitle(title)
+
+    if ylim != None:
+        plt.ylim(ylim)
+
+    if save:
+        plt.savefig(f'graphics/{name}_{prefix}.jpeg',transparent=False,dpi=400)
+
+#%% Set index order for box plots
+
+#index_order = df_co2.mean().sort_values().index
+
+#index_order = (df_co2/df_country_load).mean().sort_values().index
+
+#df = dfs['df_co2']/dfs['df_country_energy']
+#df = df[filt_burnin & filt_co2_cap]
+
+index_order = (dfs['df_co2']/dfs['df_country_energy']).mean().sort_values().index
+
+if not 'year' in index_order:
+    index_order = index_order.append(pd.Index(['year']))
+
+#%%
+
+def plot_co2_pr_mwh_box():
+
+    df = dfs['df_co2']/dfs['df_country_energy']
+    df['year'] = dfs['df_chain']['year']
+
+    # Rearange collumns to match index order 
+    df = df[index_order]
+    df['year'] = dfs['df_chain']['year']
+
+    optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+    #optimal_index = optimal_index[:-1]
+    optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
+    df_optimal = df.iloc[optimal_index]
+    df_optimal['scenario'] = np.array(['local load','local 1990','Optimum uc','EU ETS','Optimum',])
+    df_optimal = df_optimal.iloc[[0,1,3,4]]
+
+    # filter out burnin samples
+    df = df[filt_burnin & filt_co2_cap]
+
+    plot_box(df,df_optimal,ylabel='T Co2 pr MWh produced',
+                           title='Co2 intensity pr MWh',
+                           save=True,
+                           prefix=prefix,
+                           name='co2_mwh_box',
+                           fliersize=0.5,
+                           linewidth=1,
+                           color='tab:blue')
+    plt.gca()
+
+#plt.ylim((0,5e4))
+plot_co2_pr_mwh_box()
+
+
+#%% Box elec price
+
+def plot_elec_price_box():
+    df = dfs['df_nodal_el_price'].copy()
+    
+    df.columns = [network.buses.loc[b].country for b in dfs['df_nodal_el_price'].columns]
+    df = df.iloc[:,df.columns != '']
+    df = df.groupby(df.columns,axis=1).mean()
+
+    df = df[df.median().sort_values().index]
+    # Rearange collumns to match index order 
+    df['year'] = dfs['df_chain']['year']
+    #df = df[index_order]
+    
+    
+
+    optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+    #optimal_index = optimal_index[:-1]
+    optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
+    df_optimal = df.iloc[optimal_index]
+    df_optimal['scenario'] = np.array(['local load','local 1990','Optimum uc','EU ETS','Optimum',])
+
+    df_optimal = df_optimal.iloc[[0,1,3,4]]
+    # filter out burnin samples
+    df = df[filt_burnin & filt_co2_cap]
+    df.reindex()
+
+    plot_box(df,df_optimal,ylabel='€/MWh',
+                           title='Electricity price',
+                           save=True,
+                           prefix=prefix,
+                           name='elec_price',
+                           ylim=(0,100),
+                           fliersize=0.5,
+                           linewidth=1,
+                           color='tab:blue'
+                           )
+
+plot_elec_price_box()
+
+#%% Box Co2 price
+
+def plot_co2_price_box():
+    df = dfs['df_nodal_co2_price'].copy()
+
+    df = df[df.median().sort_values().index]
+    df['year'] = dfs['df_chain']['year']
+    #df = df[index_order]
+    
+
+    optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+    #optimal_index = optimal_index[:-1]
+    optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
+    df_optimal = df.iloc[optimal_index]
+    df_optimal['scenario'] = np.array(['local load','local 1990','Optimum uc','EU ETS','Optimum',])
+
+    df_optimal = df_optimal.iloc[[0,1,3,4]]
+
+    # filter out burnin samples
+    df = df[filt_burnin & filt_co2_cap]
+
+    plot_box(df,df_optimal,ylabel='€/T',
+                           title='CO2 policy price',
+                           save=True,
+                           prefix=prefix,
+                           name='co2_price',
+                           ylim=(-2,100),
+                           fliersize=0.5,
+                           linewidth=1,
+                           color='tab:blue'
+                           )
+
+plot_co2_price_box()
+
+#%% Plot of CO2 reductions 
+
+def plot_co2_reduction_box():
+    df = dfs['df_nodal_co2_reduct'].copy()*100
+
+    
+    df = df[df.median().sort_values().index]
+    df['year'] = dfs['df_chain']['year']
+    
+
+    optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+    #optimal_index = optimal_index[:-1]
+    optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
+    df_optimal = df.iloc[optimal_index]
+    df_optimal['scenario'] = np.array(['local load','local 1990','Optimum uc','EU ETS','Optimum',])
+
+    df_optimal = df_optimal.iloc[[0,1,3,4]]
+
+
+    # filter out burnin samples
+    df = df[filt_burnin & filt_co2_cap]
+
+    plot_box(df,df_optimal,ylabel='% CO2 emissions relative to 1990',
+                           title='CO2 emissions targets',
+                           save=True,
+                           prefix=prefix,
+                           name='co2_reduction',
+                           ylim=(0,200),
+                           fliersize=0.5,
+                           linewidth=1,
+                           whis=(2,98),
+                           color='tab:blue'
+                           )
+
+plot_co2_reduction_box()
+
+#%%
+def plot_co2_box():
+
+    #df = dfs['df_co2']/dfs['df_country_energy']
+    df = dfs['df_co2']
+    df['year'] = dfs['df_chain'][['year']]
+
+    # assign new sort order 
+    #df = df[df.mean().sort_values().index]
+    df['year'] = dfs['df_chain']['year']
+    df = df[index_order]
+    
+
+    optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+    #optimal_index = optimal_index[:-1]
+    optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
+    df_optimal = df.iloc[optimal_index]
+    df_optimal['scenario'] = np.array(['local load','local 1990','Optimum uc','EU ETS','Optimum',])
+
+    # filter out burnin samples
+    df = df[filt_burnin & filt_co2_cap]
+
+    plot_box(df,df_optimal,title='Country co2 emmission',save=True,prefix=prefix,name='co2_box')
+
+plot_co2_box()
+#%%
+
+def plot_allocated_co2():
+
+    df = dfs['df_theta'].copy()
+    df.columns=dfs['mcmc_variables']
+
+
+    for year in networks:
+        co2_budget = networks[year].global_constraints.loc['CO2Limit'].constant
+        df.loc[dfs['df_chain'].year == year] = df.loc[dfs['df_chain'].year == year].multiply(co2_budget)
+
+    df = df.iloc[:,:33] #- df_co2.iloc[:,:33]
+
+    df = df[df.mean().sort_values().index]
+    df['year'] = dfs['df_chain']['year']
+    df = df[filt_burnin & filt_co2_cap]
+
+    #df['year'] = dfs['df_chain']['year']
+    plot_box(df,title='Allocated Co2',prefix=prefix,name='allocated_co2',save=True)
+
+plot_allocated_co2()
+
+
+#%%
+
+def plot_unused_co2():
+
+    df = dfs['df_co2_assigned'].copy()
+    df = dfs['df_co2']/df
+
+    df = (df[df.mean().sort_values(ascending=False).index])*100
+    df = df.iloc[:,:33]
+    df['year'] = dfs['df_chain']['year']
+    #df['year'] = dfs['df_chain']['year']
+
+    #optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+    #optimal_index = optimal_index[[-1]]
+    optimal_index = dfs['df_chain'].query('s == 1 & c == 1').index
+    df_optimal = df.iloc[optimal_index]
+    df_optimal['scenario'] = np.array(['Optimum',])
+
+    # filter out burnin samples
+    df = df[filt_burnin & filt_co2_cap]
+
+    index_order = list(df.mean().sort_values(ascending=False).index)
+    index_order.append('year')
+
+    df = df[index_order]
+
+    plot_box(df,title='Unused CO2',
+                ylabel='% CO2 target used',
+                prefix=prefix,
+                name='unused_co2',
+                save=True,
+                fliersize=0.5,
+                linewidth=1,
+                color='tab:blue')
+
+plot_unused_co2()
+
+#%% Plot co2 allocated vs el price 
+
+#f,ax = plt.subplots(1,3)
+
+def plot_country_co2_vs_elec_price(countries):
+    
+    f,ax = plt.subplots(1,5,sharey=True,figsize=(12,3))
+
+    for i,country in enumerate(countries):
+
+        country_idx = np.where(np.array(dfs['mcmc_variables'])==country)[0]
+        #plt.scatter((df_theta*base_emis).iloc[:,country_idx],df_country_el_price[country])
+        #
+        # ax[i].scatter((df_theta*base_emis*0.45).iloc[:,country_idx],dfs['df_co2'][country][:8011],alpha=0.2)
+
+        x = dfs['df_co2_assigned'][country]*1e-6
+        x = x[filt_burnin & filt_co2_cap]
+
+        y = (dfs['df_co2'][country].iloc[:-3]/dfs['df_co2_assigned'][country])*100
+        y = y[filt_burnin & filt_co2_cap]
+
+        ax[i].scatter(x,y,alpha=0.01)
+        ax[i].set_xticks(np.arange(0, max(x)+1, 20))
+
+        ax[i].set_xlabel('CO2 target\n [M ton CO2]')
+        ax[i].set_title(country)
+    ax[0].set_ylabel('% CO2 quotas used')
+    plt.savefig(f'graphics/co2_vs_co2_{countries}.jpeg',dpi=400,bbox_inches='tight')
+
+plot_country_co2_vs_elec_price(['PL','NL','AT','FI','SE'])
+
+
+#%% Plot national co2 reduction vs co2 reduction cost
+
+def plot_country_red_vs_co2_price(countries):
+    f,ax = plt.subplots(2,int(len(countries)/2),sharey=True,sharex=True,figsize=(12,6))
+
+    for i,country in enumerate(countries):
+        df_nodal_co2_reduct = dfs['df_nodal_co2_reduct']*100
+
+        ax[i%2,i%3].scatter(y=dfs['df_nodal_co2_price'][country],x=df_nodal_co2_reduct[country],alpha=0.01 )
+        #sns.histplot(x=dfs['df_nodal_co2_price'].values.flatten(),y=df_nodal_co2_reduct.values.flatten(),
+        #                bins=60,
+        #                binrange=((2,100),(0,1)),
+        #                pmax=0.8)
+        #
+        ax[i%2,i%3].set_xlim(-5,105)
+        ax[i%2,i%3].set_title(country)
+        ax[i%2,i%3].grid()
+        #ax[i].set_xlabel('% CO2 reduction\n relative to 1990 values')
+    ax[0,0].set_ylabel('CO2 policy\nprice [€/ton]')
+    ax[1,0].set_ylabel('CO2 policy\nprice [€/ton]')
+    plt.ylim(0,100)
+    
+    f.text(0.5, 0.05, '% CO2 emissions relative to 1990 values', ha='center')
+    #plt.xlabel('% CO2 reduction relative to 1990 values')
+
+    plt.savefig(f'graphics/red_vs_co2_price_{countries}.jpeg',dpi=400,bbox_inches='tight')
+
+plot_country_red_vs_co2_price(['RO','GB','ES','DE','DK','PL'])
+
+
+#%% Plot histogram of all co2 prices vs co2 reductions
+
+df_nodal_co2_reduct = dfs['df_nodal_co2_reduct']
+sns.histplot(x=dfs['df_nodal_co2_price'].values.flatten(),y=df_nodal_co2_reduct.values.flatten(),
+                bins=60,
+                binrange=((2,100),(0,1)),
+                pmax=0.8)
+
+#%%
+
+df_country_el_price = dfs['df_nodal_el_price'].copy()
+
+df_country_el_price.columns = [network.buses.loc[b].country for b in dfs['df_nodal_el_price'].columns]
+df_country_el_price = df_country_el_price.iloc[:,df_country_el_price.columns != '']
+df_country_el_price = df_country_el_price.groupby(df_country_el_price.columns,axis=1).mean()
+
+
+countries = ['FR','AT','GB','NL','PL']
+
+f,ax = plt.subplots(1,len(countries),sharey=True,sharex=True,figsize=(12,3))
+
+for i,country in enumerate(countries):
+    df_nodal_co2_reduct = dfs['df_nodal_co2_reduct']*100
+
+    ax[i].scatter(y=df_country_el_price[country],x=df_nodal_co2_reduct[country],alpha=0.02 )
+    #sns.histplot(x=dfs['df_nodal_co2_price'].values.flatten(),y=df_nodal_co2_reduct.values.flatten(),
+    #                bins=60,
+    #                binrange=((2,100),(0,1)),
+    #                pmax=0.8)
+    #
+    ax[i].set_xlim(-5,105)
+    ax[i].set_title(country)
+    #ax[i].set_xlabel('% CO2 reduction\n relative to 1990 values')
+ax[0].set_ylabel('CO2 policy\nprice [€/ton]')
+plt.ylim(0,100)
+f.text(0.5, 0.00, '% CO2 reduction relative to 1990 values', ha='center')
+#plt.xlabel('% CO2 reduction relative to 1990 values')
+
+#%%
+
+df_nodal_co2_reduct = dfs['df_country_cost']
+sns.histplot(x=df_country_el_price.values.flatten(),y=df_nodal_co2_reduct.values.flatten(),
+                bins=60,
+                #binrange=((2,100),(0,0.8)),
+                pmax=0.8)
 
 #%%################## corrolelogram tech energy #######################
 #######################################################################
@@ -404,234 +809,9 @@ plot_corrolelogram_secondary(save=True,prefix=prefix,plot_optimum=True,
                                       'energy dependance':['energy dependance']})
 
 
-#%%################### box plot ############################
-###############################################################
 
-def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co2_box',ylabel='CO2 emission',ylim=None,**kwargs):
-    #df_wide = co2_pr_pop
-    model_countries = network.buses.country.unique()[:33]
-    df = pd.melt(df_wide,value_vars=model_countries,id_vars='year',var_name='Country')
-    #df = df.query('year == 2030 | year == 2050')
-
-    f,ax = plt.subplots(figsize=(30,10))
-    sns_plot = sns.boxplot(x='Country', y="value", #hue_order=model_countries, #hue="year",
-                        data=df, 
-                        #palette="muted",
-                        order=df_wide.columns[:-1],
-                        ax=ax,
-                        **kwargs)
-
-    if df_wide_optimal is not None:
-        df_optimal = pd.melt(df_wide_optimal,value_vars=model_countries,id_vars=['year','scenario'],var_name='Country')
-        sns.stripplot(x='Country',y='value',#hue='Country',
-                        data=df_optimal,
-                        order=df_wide.columns[:-1],
-                        jitter=0,
-                        hue='scenario',
-                        #color='red',
-                        #marker='X',
-                        size=10,
-                        ax=ax,)
-
-
-    plt.ylabel(ylabel)
-    plt.suptitle(title)
-
-    if ylim != None:
-        plt.ylim(ylim)
-
-    if save:
-        plt.savefig(f'graphics/{name}_{prefix}.jpeg',transparent=False)
-
-
-#%% Set index order for box plots
-
-#index_order = df_co2.mean().sort_values().index
-
-#index_order = (df_co2/df_country_load).mean().sort_values().index
-
-df = dfs['df_co2']/dfs['df_country_energy']
-df = df[filt_burnin & filt_co2_cap]
-
-index_order = (dfs['df_co2']/dfs['df_country_energy']).mean().sort_values().index
-
-#%%
-def plot_co2_box():
-
-    #df = dfs['df_co2']/dfs['df_country_energy']
-    df = dfs['df_co2']
-    df['year'] = dfs['df_chain'][['year']]
-
-    # assign new sort order 
-    #df = df[df.mean().sort_values().index]
-    df = df[index_order]
-    df['year'] = dfs['df_chain']['year']
-
-    optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
-    optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
-    df_optimal = df.iloc[optimal_index]
-    #df_optimal = df_optimal.append(dfs['df_co2_sweep'])
-    df_optimal['scenario'] = np.array(['local load','local 1990','Optimum unconstrained','Optimum',])
-
-    # filter out burnin samples
-    df = df[filt_burnin & filt_co2_cap]
-
-    plot_box(df,df_optimal,title='Country co2 emmission',save=True,prefix=prefix,name='co2_box')
-
-plot_co2_box()
-
-
-#%%
-
-def plot_co2_pr_mwh_box():
-
-    df = dfs['df_co2']/dfs['df_country_energy']
-    df['year'] = dfs['df_chain']['year']
-
-    # Rearange collumns to match index order 
-    df = df[index_order]
-    df['year'] = dfs['df_chain']['year']
-
-    optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
-    optimal_index = optimal_index[:2]
-    optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
-    df_optimal = df.iloc[optimal_index]
-    df_optimal['scenario'] = np.array(['local load','local 1990','Optimum',])
-    # filter out burnin samples
-    df = df[filt_burnin & filt_co2_cap]
-
-    plot_box(df,df_optimal,ylabel='T Co2 pr MWh produced',
-                           title='Co2 intensity pr MWh',
-                           save=True,
-                           prefix=prefix,
-                           name='co2_mwh_box',
-                           fliersize=0.5,
-                           linewidth=1,
-                           color='tab:blue')
-    plt.gca()
-
-#plt.ylim((0,5e4))
-plot_co2_pr_mwh_box()
-
-
-#%% Box elec price
-
-def plot_elec_price_box():
-    df = dfs['df_nodal_el_price'].copy()
-    
-    df.columns = [network.buses.loc[b].country for b in dfs['df_nodal_el_price'].columns]
-    df = df.iloc[:,df.columns != '']
-    df = df.groupby(df.columns,axis=1).mean()
-
-    # Rearange collumns to match index order 
-    df = df[index_order]
-    df['year'] = dfs['df_chain']['year']
-
-    optimal_index = dfs['df_chain'].query('year == "scenarios"').index
-    optimal_index = optimal_index[:-1]
-    optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
-    df_optimal = df.iloc[optimal_index]
-    df_optimal['scenario'] = np.array(['local load','local 1990','Optimum',])
-
-    # filter out burnin samples
-    df = df[filt_burnin & filt_co2_cap]
-    df.reindex()
-
-    plot_box(df,df_optimal,ylabel='€/MWh',
-                           title='Elec price',
-                           save=True,
-                           prefix=prefix,
-                           name='elec_price',
-                           ylim=(0,100),
-                           fliersize=0.5,
-                           linewidth=1,
-                           color='tab:blue'
-                           )
-
-plot_elec_price_box()
-
-#%% Box Co2 price
-
-def plot_co2_price_box():
-    df = dfs['df_nodal_co2_price'].copy()
-
-    df = df[index_order]
-    df['year'] = dfs['df_chain']['year']
-
-
-    optimal_index = dfs['df_chain'].query('year == "scenarios"').index
-    optimal_index = optimal_index[:-1]
-    optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
-    df_optimal = df.iloc[optimal_index]
-    df_optimal['scenario'] = np.array(['local load','local 1990','Optimum',])
-
-
-    # filter out burnin samples
-    df = df[filt_burnin & filt_co2_cap]
-
-    plot_box(df,df_optimal,ylabel='€/T',
-                           title='CO2 policy price',
-                           save=True,
-                           prefix=prefix,
-                           name='co2_price',
-                           ylim=(-2,100),
-                           fliersize=0.5,
-                           linewidth=1,
-                           color='tab:blue'
-                           )
-
-plot_co2_price_box()
-
-#%%
-
-def plot_allocated_co2():
-
-    df = dfs['df_theta'].copy()
-    df.columns=dfs['mcmc_variables']
-
-
-    for year in networks:
-        co2_budget = networks[year].global_constraints.loc['CO2Limit'].constant
-        df.loc[dfs['df_chain'].year == year] = df.loc[dfs['df_chain'].year == year].multiply(co2_budget)
-
-    df = df.iloc[:,:33] #- df_co2.iloc[:,:33]
-
-    df = df[df.mean().sort_values().index]
-    df['year'] = dfs['df_chain']['year']
-    df = df[filt_burnin & filt_co2_cap]
-
-    #df['year'] = dfs['df_chain']['year']
-    plot_box(df,title='Allocated Co2',prefix=prefix,name='allocated_co2',save=True)
-
-plot_allocated_co2()
-
-
-#%%
-
-def plot_unused_co2():
-
-    df = dfs['df_co2_assigned'].copy()
-    df = dfs['df_co2']/df
-
-    df = (df[df.mean().sort_values(ascending=False).index])*100
-    df = df.iloc[:,:33]
-    df['year'] = dfs['df_chain']['year']
-    #df['year'] = dfs['df_chain']['year']
-
-    # filter out burnin samples
-    df = df[filt_burnin & filt_co2_cap]
-
-    index_order = list(df.mean().sort_values(ascending=False).index)
-    index_order.append('year')
-
-    df = df[index_order]
-
-    plot_box(df,title='Unused Co2',ylabel='% CO2 quotas used',prefix=prefix,name='unused_co2',save=True,fliersize=1,color='tab:blue')
-
-plot_unused_co2()
 
 #%% Correlation of CO2 allocations
-
 
 def plot_co2_correlation_matrix():
 
@@ -650,7 +830,7 @@ def plot_co2_correlation_matrix():
                 #ax = ax
                 )
     plt.title('CO2 emissions')
-    #plt.savefig(f'graphics/co2_quotas_correlations_{prefix}.jpeg',dpi=400)
+    plt.savefig(f'graphics/co2_emis_correlations_{prefix}.jpeg',dpi=400)
 plot_co2_correlation_matrix()
 
 
@@ -658,52 +838,32 @@ plot_co2_correlation_matrix()
 
 #Germany, Czech Republic, Slovakia, Poland, Hungary, Slovenia, Croatia, Liechtenstein, and Switzerland)
 
-sns.pairplot(dfs['df_co2'].loc[dfs['df_chain'].s>burnin_samples,['PT','ES','FR']],kind='hist')
-#plt.title('CO2 emissions')
-plt.savefig(f'graphics/co2_correllelogram_{prefix}.jpeg',dpi=400)
+def plot_country_co2_correlation(countries):
 
-#%% Plot co2 allocated vs el price 
+    sns.pairplot(dfs['df_co2'].loc[dfs['df_chain'].s>burnin_samples,countries],kind='hist')
+    #plt.title('CO2 emissions')
+    plt.savefig(f'graphics/co2_correllelogram_{countries}_{prefix}.jpeg',dpi=400)
 
-#f,ax = plt.subplots(1,3)
-
-def plot_country_co2_vs_elec_price(countries):
-    
-    f,ax = plt.subplots(1,5,sharey=True,figsize=(19,5))
-
-    for i,country in enumerate(countries):
-
-        country_idx = np.where(np.array(dfs['mcmc_variables'])==country)[0]
-        #plt.scatter((df_theta*base_emis).iloc[:,country_idx],df_country_el_price[country])
-        #
-        # ax[i].scatter((df_theta*base_emis*0.45).iloc[:,country_idx],dfs['df_co2'][country][:8011],alpha=0.2)
-
-        x = dfs['df_co2_assigned'][country]
-        x = x[filt_burnin & filt_co2_cap]
-
-        y = (dfs['df_co2'][country].iloc[:-3]/dfs['df_co2_assigned'][country])*100
-        y = y[filt_burnin & filt_co2_cap]
-
-        ax[i].scatter(x,y,alpha=0.01)
-        
-        ax[i].set_xlabel('Assigned CO2 quotas')
-        ax[i].set_title(country)
-    ax[0].set_ylabel('% CO2 quotas used')
-    plt.savefig(f'graphics/co2_vs_co2_{countries}.jpeg')
-
-plot_country_co2_vs_elec_price(['PL','FR','HR','BA','SE'])
+plot_country_co2_correlation(['PL','LV','DE'])
 
 #%% Plot CO2 price vs reduction correlation 
 
-country = 'DE'
+
+def plot_country_co2_price_vs_emis(country):
 #df = pd.DataFrame( data={'CO2 price':df_nodal_co2_price[country],'Assigned quotas':df_theta[country]*base_emis})
-#df = pd.DataFrame( data={'CO2 price':df_nodal_co2_price[country],'Assigned quotas':df_co2[country]})
-df = pd.DataFrame( data={'CO2 price':dfs['df_country_cost'][country],'Assigned quotas':dfs['df_co2'][country]})
+    df = pd.DataFrame( data={'CO2 policy price':dfs['df_nodal_co2_price'][country],'CO2 emissions':dfs['df_nodal_co2_reduct'][country]*100})
+    #df = pd.DataFrame( data={'CO2 price':dfs['df_country_cost'][country],'Assigned quotas':dfs['df_co2'][country]})
 
-sns.lmplot(data = df[filt_burnin & filt_co2_cap], x='Assigned quotas' , y='CO2 price',line_kws={'color':'r'},scatter_kws={'alpha':0.1})
+    #sns.lmplot(data = df[filt_burnin & filt_co2_cap], x='CO2 emissions' , y='CO2 policy price',line_kws={'color':'r'},scatter_kws={'alpha':0.1})
+    sns.scatterplot(data = df[filt_burnin & filt_co2_cap], x='CO2 emissions' , y='CO2 policy price',alpha=0.1)
 
-#plt.ylim(0,100)
-#plt.xlim(0,0.5e8)
+    plt.title(country)
+    plt.ylim(0,100)
+    plt.xlabel('% CO2 emissions relative to 1990')
+    #plt.xlim(0,0.5e7)
 
+country = 'RO'
+plot_country_co2_price_vs_emis(country)
 
 #%% Plot of brownfield capacities
 import matplotlib
@@ -711,116 +871,117 @@ from matplotlib.patches import Circle, Ellipse
 from matplotlib.legend_handler import HandlerPatch
 import cartopy.crs as ccrs
 
+def plot_brownfield_capacities():
+    bus_size_factor = 80000
+    linewidth_factor = 2000
 
-bus_size_factor = 80000
-linewidth_factor = 2000
+    # Get pie chart sizes for technology capacities 
+    tech_types =  list(network.generators.query('p_nom_extendable == False').carrier.unique()) + list(network.links.query('p_nom_extendable == False').carrier.unique())
+    tech_types.remove('DC')
 
-# Get pie chart sizes for technology capacities 
-tech_types =  list(network.generators.query('p_nom_extendable == False').carrier.unique()) + list(network.links.query('p_nom_extendable == False').carrier.unique())
-tech_types.remove('DC')
+    bus_cap = pd.Series()
+    bus_cap.index = pd.MultiIndex.from_arrays([[],[]],names=['bus','tech'])
+    for tech in tech_types:
+        s = network.generators.query(f'carrier == "{tech}" & p_nom_extendable == False').p_nom_opt.groupby(network.generators.bus).sum()
 
-bus_cap = pd.Series()
-bus_cap.index = pd.MultiIndex.from_arrays([[],[]],names=['bus','tech'])
-for tech in tech_types:
-    s = network.generators.query(f'carrier == "{tech}" & p_nom_extendable == False').p_nom_opt.groupby(network.generators.bus).sum()
+        if len(s)<=1:
+            s = network.links.query(f'carrier == "{tech}" & p_nom_extendable == False').p_nom_opt.groupby(network.links.bus1).sum()
 
-    if len(s)<=1:
-        s = network.links.query(f'carrier == "{tech}" & p_nom_extendable == False').p_nom_opt.groupby(network.links.bus1).sum()
+        s.index = pd.MultiIndex.from_arrays([s.index,[tech]*len(s)],names=['bus','tech'])
+        bus_cap = pd.concat([bus_cap,s])
 
-    s.index = pd.MultiIndex.from_arrays([s.index,[tech]*len(s)],names=['bus','tech'])
-    bus_cap = pd.concat([bus_cap,s])
+    network_buses = network.buses.query('country != ""').index
+    bus_cap = bus_cap[bus_cap.index.get_level_values(0).isin(network_buses)]
 
-network_buses = network.buses.query('country != ""').index
-bus_cap = bus_cap[bus_cap.index.get_level_values(0).isin(network_buses)]
+    # DC Link witdhts 
+    link_width = pd.Series(index=network.links.index)
+    link_width[network.links.query('carrier == "DC"').index] = network.links.query('carrier == "DC"').p_nom_opt
+    link_width[network.links.query('carrier != "DC"').index] = 0
 
-# DC Link witdhts 
-link_width = pd.Series(index=network.links.index)
-link_width[network.links.query('carrier == "DC"').index] = network.links.query('carrier == "DC"').p_nom_opt
-link_width[network.links.query('carrier != "DC"').index] = 0
+    fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
+    fig.set_size_inches(7, 7)
 
-fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
-fig.set_size_inches(7, 7)
-
-#tech_colors = {'offwind':'#1f77b4','solar':'#ff7f0e','onwind':'#8c564b','CCGT':'#e377c2','OCGT':'#d62728','nuclear':'#d62728','ror':'#d62728'}
-tech_colors = get_tech_colors()
-
-
-network.plot(
-        bus_sizes=bus_cap/bus_size_factor,
-        bus_colors=tech_colors,
-        #line_colors=ac_color,
-        link_colors='blue',
-        line_widths=network.lines.s_nom / linewidth_factor,
-        line_colors='#2ca02c',
-        link_widths=link_width/linewidth_factor,
-        #ax=ax[int(np.floor(i/2)),i%2],  
-        boundaries=(-10, 30, 34, 70),
-        color_geomap={'ocean': 'white', 'land': (203/255, 203/255, 203/255)})
-
-#ax[int(np.floor(i/2)),i%2].set_title(plot_titles[i],font=font)
+    #tech_colors = {'offwind':'#1f77b4','solar':'#ff7f0e','onwind':'#8c564b','CCGT':'#e377c2','OCGT':'#d62728','nuclear':'#d62728','ror':'#d62728'}
+    tech_colors = get_tech_colors()
 
 
-def make_legend_circles_for(sizes, scale=1.0, **kw):
-    return [Circle((0, 0), radius=(s / scale)**0.5, **kw) for s in sizes]
+    network.plot(
+            bus_sizes=bus_cap/bus_size_factor,
+            bus_colors=tech_colors,
+            #line_colors=ac_color,
+            link_colors='blue',
+            line_widths=network.lines.s_nom / linewidth_factor,
+            line_colors='#2ca02c',
+            link_widths=link_width/linewidth_factor,
+            #ax=ax[int(np.floor(i/2)),i%2],  
+            boundaries=(-10, 30, 34, 70),
+            color_geomap={'ocean': 'white', 'land': (203/255, 203/255, 203/255)})
 
-def make_handler_map_to_scale_circles_as_in(ax, dont_resize_actively=False):
-    fig = ax.get_figure()
+    #ax[int(np.floor(i/2)),i%2].set_title(plot_titles[i],font=font)
 
-    def axes2pt():
-        return np.diff(ax.transData.transform([(0, 0), (1, 1)]), axis=0)[
-            0] * (72. / fig.dpi)
 
-    ellipses = []
-    if not dont_resize_actively:
-        def update_width_height(event):
-            dist = axes2pt()
-            for e, radius in ellipses:
-                e.width, e.height = 2. * radius * dist
-        fig.canvas.mpl_connect('resize_event', update_width_height)
-        ax.callbacks.connect('xlim_changed', update_width_height)
-        ax.callbacks.connect('ylim_changed', update_width_height)
+    def make_legend_circles_for(sizes, scale=1.0, **kw):
+        return [Circle((0, 0), radius=(s / scale)**0.5, **kw) for s in sizes]
 
-    def legend_circle_handler(legend, orig_handle, xdescent, ydescent,
-                              width, height, fontsize):
-        w, h = 2. * orig_handle.get_radius() * axes2pt()
-        e = Ellipse(xy=(0.5 * width - 0.5 * xdescent, 0.5 *
-                        height - 0.5 * ydescent), width=w, height=w)
-        ellipses.append((e, orig_handle.get_radius()))
-        return e
-    return {Circle: HandlerPatch(patch_func=legend_circle_handler)}
+    def make_handler_map_to_scale_circles_as_in(ax, dont_resize_actively=False):
+        fig = ax.get_figure()
 
-# Legend for bus size
-handles = make_legend_circles_for(
-    [3e7, 1e7], scale=bus_size_factor, facecolor="gray")
+        def axes2pt():
+            return np.diff(ax.transData.transform([(0, 0), (1, 1)]), axis=0)[
+                0] * (72. / fig.dpi)
 
-labels = ["  {} GW".format(s) for s in (300, 100)]
-l2 = ax.legend(handles, labels,
-                loc="upper left", bbox_to_anchor=(1.01, 1.4),
-                labelspacing=3.0,
-                framealpha=1.,
-                title='Installed capacity',
-                handler_map=make_handler_map_to_scale_circles_as_in(ax))
-ax.add_artist(l2)
+        ellipses = []
+        if not dont_resize_actively:
+            def update_width_height(event):
+                dist = axes2pt()
+                for e, radius in ellipses:
+                    e.width, e.height = 2. * radius * dist
+            fig.canvas.mpl_connect('resize_event', update_width_height)
+            ax.callbacks.connect('xlim_changed', update_width_height)
+            ax.callbacks.connect('ylim_changed', update_width_height)
 
-# Legend for carriers 
-handles = []
-for t in tech_types:
-    s = 5e6
-    scale = bus_size_factor,
-    kw = {'facecolor':tech_colors[t]}
-    handles.append(Circle((0, 0), radius=(s / bus_size_factor)**0.5, **kw))
+        def legend_circle_handler(legend, orig_handle, xdescent, ydescent,
+                                width, height, fontsize):
+            w, h = 2. * orig_handle.get_radius() * axes2pt()
+            e = Ellipse(xy=(0.5 * width - 0.5 * xdescent, 0.5 *
+                            height - 0.5 * ydescent), width=w, height=w)
+            ellipses.append((e, orig_handle.get_radius()))
+            return e
+        return {Circle: HandlerPatch(patch_func=legend_circle_handler)}
 
-labels = ["{}".format(s) for s in tech_types]
-l1 = ax.legend(handles, labels,
-                loc="upper left", bbox_to_anchor=(1.01, 0.85),
-                labelspacing=1.0,
-                framealpha=1.,
-                title='Carriers',
-                handler_map=make_handler_map_to_scale_circles_as_in(ax))
-ax.add_artist(l1)
+    # Legend for bus size
+    handles = make_legend_circles_for(
+        [3e7, 1e7], scale=bus_size_factor, facecolor="gray")
 
-plt.savefig(f'graphics/brownfield_tech{prefix}.jpeg',dpi=fig.dpi,bbox_extra_artists=(l2,l1),bbox_inches='tight')
+    labels = ["  {} GW".format(s) for s in (300, 100)]
+    l2 = ax.legend(handles, labels,
+                    loc="upper left", bbox_to_anchor=(1.01, 1.4),
+                    labelspacing=3.0,
+                    framealpha=1.,
+                    title='Installed capacity',
+                    handler_map=make_handler_map_to_scale_circles_as_in(ax))
+    ax.add_artist(l2)
 
+    # Legend for carriers 
+    handles = []
+    for t in tech_types:
+        s = 5e6
+        scale = bus_size_factor,
+        kw = {'facecolor':tech_colors[t]}
+        handles.append(Circle((0, 0), radius=(s / bus_size_factor)**0.5, **kw))
+
+    labels = ["{}".format(s) for s in tech_types]
+    l1 = ax.legend(handles, labels,
+                    loc="upper left", bbox_to_anchor=(1.01, 0.85),
+                    labelspacing=1.0,
+                    framealpha=1.,
+                    title='Carriers',
+                    handler_map=make_handler_map_to_scale_circles_as_in(ax))
+    ax.add_artist(l1)
+
+    plt.savefig(f'graphics/brownfield_tech{prefix}.jpeg',dpi=fig.dpi,bbox_extra_artists=(l2,l1),bbox_inches='tight')
+
+plot_brownfield_capacities()
 
 
 #%% Geographical Potentials 
@@ -1099,6 +1260,30 @@ l1 = ax.legend(handles, labels,
                 title='Carriers',
                 handler_map=make_handler_map_to_scale_circles_as_in(ax))
 ax.add_artist(l1)
+
+#%% Distribution of installed capacity on country level 
+
+def plot_generator_variance():
+
+    plt.subplots(figsize=(14,5))
+    df_gen_grouped = dfs['df_gen_p'].groupby([network.generators.carrier,network.generators.country],axis=1).sum()
+
+    df_gen_grouped.drop(df_gen_grouped.loc[:,(slice(None),'')].columns,axis=1,inplace=True)
+
+    #df_gen_grouped.loc[:,('solar','ES')].hist()
+
+    ax = sns.boxplot(data=df_gen_grouped.loc[:,df_gen_grouped.var()>1e2]*1e-3,
+                whis=(0,100),
+                )
+
+    ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
+    plt.ylabel('Installed capacity [GW]')
+    plt.xlabel('Generator')
+    plt.title('Generator capacity with variance > 100 MW')
+
+    plt.savefig(f'graphics/generator_variance_{prefix}.jpeg',dpi=fig.dpi,bbox_inches='tight')
+
+plot_generator_variance()
 
 
 

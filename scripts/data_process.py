@@ -132,6 +132,21 @@ def calc_co2_pr_pop(dfs,network):
 
     return co2_pr_pop
 
+
+def calc_nodal_co2_reduction(dfs,network):
+    # Nodal co2 reduction 
+    #co2_totals_2 = pd.read_csv('data/elec_emission_incl_autoprod.csv',index_col=0)
+
+
+    co2_totals = pd.read_csv('data/co2_totals.csv',index_col=0)
+    co2_totals_elec = co2_totals['electricity']
+    #co2_totals_elec = co2_totals.sum(axis=1)
+    model_countries = network.buses.country.unique()
+    co2_totals_elec = co2_totals_elec[model_countries[:-1]]
+
+    dfs['df_nodal_co2_reduct'] = (dfs['df_co2'])/(co2_totals_elec*1e6)
+    return
+
 def update_secondary_data(dfs,network,base_emis,generators,links):
 # Calc data for cost increase and co2 reduction 
 
@@ -152,6 +167,8 @@ def update_secondary_data(dfs,network,base_emis,generators,links):
     co2_pr_pop = calc_co2_pr_pop(dfs,network)
     gini_co2_pr_pop = calc_gini(co2_pr_pop)
     dfs['df_secondary']['gini_co2_pr_pop'] = gini_co2_pr_pop
+
+    
 
     return 
 
@@ -249,7 +266,7 @@ def calc_country_dfs(dfs,network,links,generators,storage_units):
 
 
 
-def data_postprocess(dfs,networks,base_emis):
+def data_postprocess(dfs,networks,base_emis,co2_red=0.45):
     
     network = list(networks.values())[0]
 
@@ -275,7 +292,9 @@ def data_postprocess(dfs,networks,base_emis):
     dfs['df_secondary']['gini_el_price'] = calc_gini(df_country_el_price/dfs['df_country_pop'])
 
     dfs['df_theta'].columns = dfs['mcmc_variables']
-    dfs['df_co2_assigned'] = dfs['df_theta']*base_emis*0.45
+    dfs['df_co2_assigned'] = dfs['df_theta']*base_emis*co2_red
+
+    calc_nodal_co2_reduction(dfs,network)
 
     return 
 
