@@ -57,9 +57,13 @@ def adaptive_sigma(df_theta,sigma_prev,accept_target=0.75):
     accept_percent = df_theta.query(f's > = {sample_range}').a.mean()
 
     if accept_percent>accept_target:
-        sigma = sigma_prev*1.1
+        sigma = sigma_prev+0.05
+        if np.mean(sigma) >= 1:
+            sigma = sigma_prev
     else :
-        sigma = sigma_prev*0.9
+        sigma = sigma_prev-0.05
+        if np.mean(sigma) <= 0.0001:
+            sigma = sigma_prev
     return sigma
 
 def worker(q,thetas,mcmc_variables,co2_budget,q_proc_done,snakemake):
