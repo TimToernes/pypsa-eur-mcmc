@@ -16,6 +16,7 @@ import pandas as pd
 from solutions import solutions
 import multiprocessing as mp
 import time
+from iso3166 import countries as iso_countries
 
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
@@ -41,45 +42,31 @@ def calc_150p_coal_emis(network,emis_factor=1.5):
 
     return country_alowable_emis
 
-# %%
+def create_country_pop_df(network):
+    df_pop = pd.read_csv('data/API_SP.POP.TOTL_DS2_en_csv_v2_2106202.csv',
+                        sep=',',
+                        index_col=0,skiprows=3)
+    df_gdp = pd.read_csv('data/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2055594.csv',
+                            sep=',',
+                            index_col=0,skiprows=3)
 
-if __name__ == '__main__':
-    if 'snakemake' not in globals():
-        from _helpers import mock_snakemake
-        if not 'Snakefile' in  os.listdir():
-            os.chdir('..')
-        snakemake = mock_snakemake('co2_aloc_scenarios')
 
-    builtins.snakemake = snakemake
+    model_countries = network.buses.country.unique()[:33]
+    alpha3 = [iso_countries.get(c).alpha3 for c in model_countries]
+    df_pop_i = df_pop.set_index('Country Code')
+    df_gdp_i = df_gdp.set_index('Country Code')
 
+    model_countries_pop = pd.DataFrame(df_pop_i.loc[alpha3]['2019'])
+    model_countries_gdp = pd.DataFrame(df_gdp_i.loc[alpha3]['2019'])
+    model_countries_pop.index = model_countries
+    model_countries_gdp.index = model_countries
     
+    df_country_pop = pd.Series(model_countries_pop['2019'])
+    df_country_gdp = pd.Series(model_countries_gdp['2019'])
 
-    network = pypsa.Network(snakemake.input.network, 
-                            override_component_attrs=override_component_attrs)
-    network = set_link_locations(network)
+    return df_country_pop, df_country_gdp
 
-    cts = network.buses.country.unique()
-    cts = cts[:33]
-
-    co2_totals = pd.read_csv('data/co2_totals.csv',index_col=0)
-
-    co2_targets = pd.read_csv('data/co2_targets.csv',index_col=0)
-
-    co2_base_emis = co2_totals.loc[cts, "electricity"].sum()
-
-    co2_budget = snakemake.config['co2_budget']
-    co2_red = co2_budget/(co2_base_emis*1e6)
-
-    national_co2 = co2_totals.loc[cts, "electricity"]
-
-    local_1990 = national_co2*co2_red*1e6
-
-    load = network.loads_t.p.groupby(network.buses.country,axis=1).sum().sum()
-
-    local_load = load/sum(load)*co2_base_emis*co2_red*1e6
-
-    mcmc_variables = network.buses.country.unique()
-    mcmc_variables[np.where(mcmc_variables == '')] = 'EU'
+# %%
 
     # Emission share from elec sector assumed to be 35 %, based on 
     # calculation below 
@@ -89,29 +76,94 @@ if __name__ == '__main__':
     # 30% according to the following calculation
     # (co2_targets[1990].sum()-co2_targets['2030 targets'].sum())/co2_targets[1990].sum()
 
+if __name__ == '__main__':
+    if 'snakemake' not in globals():
+        from _helpers import mock_snakemake
+        if not 'Snakefile' in  os.listdir():
+            os.chdir('..')
+        snakemake = mock_snakemake('co2_aloc_scenarios')
+
+    builtins.snakemake = snakemake
+    network = pypsa.Network(snakemake.input.network, 
+                            override_component_attrs=override_component_attrs)
+    network = set_link_locations(network)
+
+    cts = network.buses.country.unique()
+    cts = cts[:33]
+
+    mcmc_variables = network.buses.country.unique()
+    mcmc_variables[np.where(mcmc_variables == '')] = 'EU'
+
+    co2_totals = pd.read_csv('data/co2_totals.csv',index_col=0)
+    co2_targets = pd.read_csv('data/co2_targets.csv',index_col=0)
+    co2_base_emis = co2_totals.loc[cts, "electricity"].sum()
+    co2_budget = snakemake.config['co2_budget']
+    co2_red = co2_budget/(co2_base_emis*1e6)
+
+    df_country_pop, df_country_gdp = create_country_pop_df(network)
+
+    national_co2 = co2_totals.loc[cts, "electricity"]
+
+    emis_alloc_schemes = {}
+
+    #### Local 1990 - Soverignity
+    local_1990 = national_co2*co2_red*1e6
+    emis_alloc_schemes['local_1990'] = local_1990
+
+
+    #### Local load - 
+    load = network.loads_t.p.groupby(network.buses.country,axis=1).sum().sum()
+    local_load = load/sum(load)*co2_base_emis*co2_red*1e6
+    local_load['EU'] = np.inf
+    emis_alloc_schemes['local_load'] = local_load
+
+    ### Optimal 
     allowable_emis = calc_150p_coal_emis(network,)
     allowable_emis['EU'] = np.inf
+    emis_alloc_schemes['optimum'] = allowable_emis
 
-
+    ### EU ETS
     EU_ETS_country_share = co2_targets['2030 targets']/co2_targets['2030 targets'].sum()
-
     eu_ets_target = EU_ETS_country_share * co2_base_emis* (1-0.30) * 1e6 
-
-
-
     # For the countries not part of the EU ETS, set the allowable emissions 
     # to be a high number such that the constraint is not binding
     i_non_ets = set(cts).difference(set(EU_ETS_country_share.index))
     i_non_model = set(EU_ETS_country_share.index).difference(set(cts))
-
     for c in i_non_ets:
         eu_ets_target[c] = co2_base_emis*1e6 
-
     for c in i_non_model:
         eu_ets_target.pop(c)
+    eu_ets_target['EU'] = np.inf
+    emis_alloc_schemes['eu_ets_2018'] = eu_ets_target
 
-    emis_alloc_schemes = {'local_load':local_load,'local_1990':local_1990,'optimum':allowable_emis,'eu_ets_2018':eu_ets_target}
+    ### Egalitarianism 
+    emis_alloc_schemes['egalitarinism'] = df_country_pop/sum(df_country_pop) * co2_budget
+    emis_alloc_schemes['egalitarinism']['EU'] = np.inf
 
+    ### Ability to pay 
+    # CO2 inversly proportional to gdp/pop
+    rel_wealth = df_country_gdp/df_country_pop
+    emis_alloc_schemes['ability_to_pay'] = (1/rel_wealth)/sum(1/rel_wealth) * co2_budget
+    emis_alloc_schemes['ability_to_pay']['EU'] = np.inf
+
+    ### Relative ability to pay - proportional to pop^2/gdp
+    emis_alloc_schemes['rel_ability_to_pay'] = ((df_country_pop**2)/df_country_gdp)/sum(((df_country_pop**2)/df_country_gdp))*co2_budget
+    emis_alloc_schemes['rel_ability_to_pay']['EU'] = np.inf
+
+    ### Economic Activity 
+    emis_alloc_schemes['economic_activity'] = df_country_gdp/sum(df_country_gdp)*co2_budget
+    emis_alloc_schemes['economic_activity']['EU'] = np.inf
+
+    ### Poluter pays 
+    national_co2_no_ME = national_co2[national_co2.index != 'ME'] # ME is 0 in 1900 
+    poluter_pays = (1/national_co2_no_ME)/sum(1/national_co2_no_ME)*co2_budget
+    poluter_pays['ME'] = co2_budget
+
+
+
+    
+    #network.snapshots = network.snapshots[0:2]
+    #network.snapshot_weightings = network.snapshot_weightings[0:2]
 
     for emis_alloc in emis_alloc_schemes:
         
