@@ -127,18 +127,22 @@ def plot_cost_vs_co2(prefix='',save=False,
                     title= 'Cost vs emission reduction',
                     plot_sweep=False,
                     plot_optimum=False,
+                    plot_scenarios=False,
                     sweep_name='sweep_2030_f',
-                    co2_emis_level = 0.55):
+                    co2_emis_level = 55):
     
     # Create dataframe with relevant data
     df = dfs['df_secondary'][['cost_increase']]
     #df['co2 emission'] = df_co2.sum(axis=1)
     df['co2 emission'] =dfs['df_store_P']['co2 atmosphere']
     df['co2 reduction'] = 1-(df['co2 emission']/base_emis )
-    #df['co2 reduction'] = (1-df_co2.sum(axis=1)/base_emis)*100
+    df['co2 reduction'] = df['co2 reduction']*100
     df['year'] = dfs['df_chain']['year']
 
-    df.rename(columns={'cost_increase':'Cost increase','co2 reduction':'CO2 reduction'},inplace=True)
+    co2_label = 'CO2 reduction [%]'
+    cost_label = 'Cost increase [%]'
+
+    df.rename(columns={'cost_increase':cost_label,'co2 reduction':co2_label},inplace=True)
     #df = df[dfs['df_chain'].a==1]
 
     # Create dataframe with optimal solution
@@ -151,19 +155,23 @@ def plot_cost_vs_co2(prefix='',save=False,
         index_sweep = dfs['df_chain'].query(f'year == "{sweep_name}"').index
         df_sweep = df.iloc[index_sweep]
 
+    if plot_sweep:
+        index_scenarios = dfs['df_chain'].query(f'year == "scenarios_2030_f"').index
+        df_scenarios = df.iloc[index_scenarios]
+
     # filter out burnin samples
     #df = df[ filt_burnin & filt_co2_cap]
     df = df[ filt_burnin ]
 
-    cost_limits = [df['Cost increase'].min(),df['Cost increase'].max()]
-    co2_limits = [df['CO2 reduction'].min(),df['CO2 reduction'].max()]
+    cost_limits = [df[cost_label].min(),df[cost_label].max()]
+    co2_limits = [df[co2_label].min(),df[co2_label].max()]
 
     def sweep_plot(xdata,ydata,**kwargs):
         plt.gca()
         styles = ['bD','ms']
         #for i in range(2):
-        plt.plot(df_sweep['CO2 reduction'],
-                df_sweep['Cost increase'],
+        plt.plot(df_sweep[co2_label],
+                df_sweep[cost_label],
                         #styles[i],
                         #marker='D',
                         #mfc='g',
@@ -180,14 +188,29 @@ def plot_cost_vs_co2(prefix='',save=False,
 
     def optimum_plot(xdata,ydata,**kwargs):
         plt.gca()
-        plt.plot(df_optimum['CO2 reduction'],
-                df_optimum['Cost increase'],
+        plt.plot(df_optimum[co2_label],
+                df_optimum[cost_label],
                         marker='X',
                         mfc='r',
                         markersize=20)
 
+    def scenarios_plot(xdata,ydata,**kwargs):
+        scenario_names = ['Local Load','Local 1990','Optimum','EU ETS']
+        x = df_scenarios[co2_label]
+        y = df_scenarios[cost_label]
+        plt.gca()
+        plt.scatter(x,
+                    y,
+                    c = '#f58905',
+                    s = 50,
+                        )
+        for i,txt in enumerate(scenario_names):
+            plt.gca().annotate(txt, (x.iloc[i], y.iloc[i]),fontsize=14)
+
+
+
     sns_plot = sns.pairplot(df, 
-                            vars=['CO2 reduction','Cost increase'],
+                            vars=[co2_label,cost_label],
                             kind="hist", 
                             diag_kind='hist',
                             #hue='year',
@@ -196,9 +219,9 @@ def plot_cost_vs_co2(prefix='',save=False,
                             aspect=1.6,
                             height=3,
                             palette='Set2')
-    plt.suptitle(title)
+    #plt.suptitle(title)
 
-    cost_limits = [df['Cost increase'].min(),df['Cost increase'].max()]
+    cost_limits = [df[cost_label].min(),df[cost_label].max()]
     sns_plot.map_lower(plot_lower)
 
     if plot_sweep:
@@ -208,13 +231,17 @@ def plot_cost_vs_co2(prefix='',save=False,
     if plot_optimum:
         sns_plot.map_lower(optimum_plot)
 
+    # Draw optimal solution on plot 
+    if plot_scenarios:
+        sns_plot.map_lower(scenarios_plot)
+
     #sns_plot.axes[0,0].set_ylim((0.45,1))
 
     if save:
         sns_plot.savefig(f'graphics/cost_vs_co2_{prefix}.jpeg')
 
 
-plot_cost_vs_co2(save=True,prefix=prefix,plot_sweep=True,plot_optimum=True)
+plot_cost_vs_co2(save=True,prefix=prefix,plot_sweep=True,plot_optimum=True,plot_scenarios=True)
 
 #%%############ Plot Boxplots ############################
 
