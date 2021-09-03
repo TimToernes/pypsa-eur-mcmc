@@ -29,6 +29,18 @@ override_component_attrs["Link"].loc["p2"] = ["series","MW",0.,"2nd bus output",
 override_component_attrs["Link"].loc["p3"] = ["series","MW",0.,"3rd bus output","Output"]
 override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output","Output"]
 
+def calc_150p_coal_emis(network,emis_factor=1.5):
+    # Calculate the alowable emissions, if countries are constrained to not emit more co2 than 
+    # the emissions it would take to cover 150% of the country demand with coal power 
+
+    # data source https://ourworldindata.org/grapher/carbon-dioxide-emissions-factor
+    # 403.2 kg Co2 pr MWh
+    co2_emis_pr_ton = 0.45 # ton emission of co2 pr MWh el produced by coal
+    country_loads = network.loads_t.p.groupby(network.buses.country,axis=1).sum()
+    country_alowable_emis = country_loads.mul(network.snapshot_weightings,axis=0).sum()*co2_emis_pr_ton*emis_factor
+
+    return country_alowable_emis
+
 # %%
 
 if __name__ == '__main__':
@@ -77,10 +89,15 @@ if __name__ == '__main__':
     # 30% according to the following calculation
     # (co2_targets[1990].sum()-co2_targets['2030 targets'].sum())/co2_targets[1990].sum()
 
+    allowable_emis = calc_150p_coal_emis(network,)
+    allowable_emis['EU'] = np.inf
+
 
     EU_ETS_country_share = co2_targets['2030 targets']/co2_targets['2030 targets'].sum()
 
     eu_ets_target = EU_ETS_country_share * co2_base_emis* (1-0.30) * 1e6 
+
+
 
     # For the countries not part of the EU ETS, set the allowable emissions 
     # to be a high number such that the constraint is not binding
@@ -93,17 +110,20 @@ if __name__ == '__main__':
     for c in i_non_model:
         eu_ets_target.pop(c)
 
-    emis_alloc_schemes = {'local_load':local_load,'local_1990':local_1990,'optimum':None,'eu_ets_2018':eu_ets_target}
+    emis_alloc_schemes = {'local_load':local_load,'local_1990':local_1990,'optimum':allowable_emis,'eu_ets_2018':eu_ets_target}
 
 
     for emis_alloc in emis_alloc_schemes:
         
         country_emis = emis_alloc_schemes[emis_alloc]
 
-        network.global_constraints.constant['CO2Limit'] = snakemake.config['co2_budget']
+        
         if emis_alloc == 'optimum':
-            snakemake.config['use_local_co2_constraints'] = False            
+            snakemake.config['use_local_co2_constraints'] = True
+            snakemake.config['local_emission_constraints'] = country_emis    
+            network.global_constraints.constant['CO2Limit'] = snakemake.config['co2_budget']        
         else : 
+            network.global_constraints.constant['CO2Limit'] = snakemake.config['co2_budget']*10
             
             try :
                 country_emis['EU']
