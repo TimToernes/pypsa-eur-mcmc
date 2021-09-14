@@ -14,6 +14,10 @@ from _mcmc_helpers import *
 from _helpers import make_override_component_attrs, get_tech_colors
 from data_process import data_postprocess
 import plotly.graph_objects as go
+import matplotlib
+from matplotlib.patches import Circle, Ellipse
+from matplotlib.legend_handler import HandlerPatch
+import cartopy.crs as ccrs
 
 #%load_ext autoreload
 #%autoreload 2
@@ -273,8 +277,9 @@ def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co
         sns.stripplot(x='Country',y='value',#hue='Country',
                         data=df_optimal,
                         order=df_wide.columns[:-1],
-                        jitter=0,
+                        #jitter=0.5,
                         hue='Scenario',
+                        linewidth=1,
                         #marker='^',
                         #palette={'local load':'g','local 1990':'orange','Optimum unconstrained':'c','Optimum':'r','EU ETS':'b'},
                         palette='Dark2',
@@ -326,9 +331,10 @@ def plot_co2_pr_mwh_box():
                            save=True,
                            prefix=prefix,
                            name='co2_mwh_box',
-                           fliersize=0.5,
-                           linewidth=1,
-                           color='tab:blue')
+                           fliersize=0.1,
+                           linewidth=0.5,
+                           color='#8f897b'
+                           )
     plt.gca()
 
 #plt.ylim((0,5e4))
@@ -367,10 +373,10 @@ def plot_elec_price_box():
                            save=True,
                            prefix=prefix,
                            name='elec_price',
-                           ylim=(0,100),
-                           fliersize=0.5,
-                           linewidth=1,
-                           color='tab:blue'
+                           ylim=(0,80),
+                           fliersize=0.1,
+                           linewidth=0.5,
+                           color='#8f897b'
                            )
 
 plot_elec_price_box()
@@ -401,10 +407,10 @@ def plot_co2_price_box():
                            save=True,
                            prefix=prefix,
                            name='co2_price',
-                           ylim=(-2,100),
-                           fliersize=0.5,
-                           linewidth=1,
-                           color='tab:blue'
+                           ylim=(-2,80),
+                           fliersize=0.1,
+                           linewidth=0.5,
+                           color='#8f897b'
                            )
 
 plot_co2_price_box()
@@ -437,10 +443,10 @@ def plot_co2_reduction_box():
                            prefix=prefix,
                            name='co2_reduction',
                            ylim=(0,200),
-                           fliersize=0.5,
-                           linewidth=1,
                            whis=(2,98),
-                           color='tab:blue'
+                           fliersize=0.1,
+                           linewidth=0.5,
+                           color='#8f897b'
                            )
 
 plot_co2_reduction_box()
@@ -499,7 +505,7 @@ plot_allocated_co2()
 def plot_unused_co2():
 
     df = dfs['df_co2_assigned'].copy()
-    df = 1 - dfs['df_co2']/df
+    df = dfs['df_co2']/df
 
     df = (df[df.mean().sort_values(ascending=False).index])*100
     df = df.iloc[:,:33]
@@ -523,13 +529,13 @@ def plot_unused_co2():
     df = df[index_order]
 
     plot_box(df,df_optimal,#title='Overperformance on national reduction targets',
-                ylabel='% overperformance',
+                ylabel='Fraction of national target used\n[%]',
                 prefix=prefix,
                 name='unused_co2',
                 save=True,
-                fliersize=0.5,
-                linewidth=1,
-                color='tab:blue')
+                fliersize=0.1,
+                linewidth=0.5,
+                color='#8f897b')
 
 plot_unused_co2()
 
@@ -551,15 +557,18 @@ def plot_country_co2_vs_elec_price(countries):
         x = dfs['df_co2_assigned'][country]*1e-6
         x = x[filt_burnin & filt_co2_cap]
 
-        y = 100-(dfs['df_co2'][country].iloc[:-3]/dfs['df_co2_assigned'][country])*100
+        y = (dfs['df_co2'][country].iloc[:-3]/dfs['df_co2_assigned'][country])*100
         y = y[filt_burnin & filt_co2_cap]
 
-        ax[i].scatter(x,y,alpha=0.01)
+        ax[i].scatter(x,y,
+                        alpha=0.01,
+                        #c='#8f897b'
+                        )
         ax[i].set_xticks(np.arange(0, max(x)+1, 20))
 
-        ax[i].set_xlabel('CO2 target\n [M ton CO2]')
+        ax[i].set_xlabel('CO$_2$ target\n [M ton CO2]')
         ax[i].set_title(country)
-    ax[0].set_ylabel('% overperformance')
+    ax[0].set_ylabel('Fraction of national\ntarget used [%]')
     plt.savefig(f'graphics/co2_vs_co2_{countries}.jpeg',dpi=400,bbox_inches='tight')
 
 plot_country_co2_vs_elec_price(['PL','NL','AT','FI','SE'])
@@ -641,6 +650,22 @@ sns.histplot(x=df_country_el_price.values.flatten(),y=df_nodal_co2_reduct.values
                 binrange=((0,100),(0,50)),
                 pmax=0.8)
 
+
+
+#%%
+######## Latex table of brown field technologies
+
+df_renewables = network.generators.query('p_nom_extendable == False').groupby(['country','carrier']).sum().p_nom.unstack(level=1)
+
+df_conventionals =  network.links.query('p_nom_extendable == False & location != ""').groupby(['country','carrier']).sum().p_nom.unstack(level=1)
+
+df = pd.concat([df_renewables,df_conventionals],axis=1)
+df.fillna(0,inplace=True)
+
+print(df.to_latex(float_format='{:0.1f}'.format))
+
+
+
 #%%################## corrolelogram tech energy #######################
 #######################################################################
 
@@ -702,6 +727,25 @@ def plot_corrolelogram_tech_energy(prefix='',save=False,plot_optimum=False,
 
 plot_corrolelogram_tech_energy(prefix=prefix,save=True,plot_optimum=True)
 
+
+
+#%%
+
+technologies = {'wind':['offwind','offwind-ac','offwind-dc','onwind'],
+                'lignite + coal' : ['lignite','coal'],
+                'gas': ['OCGT','CCGT'],
+                'solar':['solar','solar rooftop'],
+                'nuclear':['nuclear'],
+                }
+df = dfs['df_chain'][['year']]
+for key in technologies: 
+    #df[key] = df_tech_e_sum[technologies[key]].sum(axis=1)
+    df[key] = dfs['df_energy'].loc[:,(slice(None),slice(None),technologies[key])].sum(axis=1)
+
+df_long = pd.melt(df,value_vars=technologies.keys(),id_vars='year',var_name='Tech')
+
+ax = sns.violinplot(x="Tech", y="value", data=df_long,cut=0,scale='width')
+#plt.ylim(0,0.8e6)
 
 #%%################## Corrolelogram tech ##############################
 #######################################################################
@@ -865,12 +909,61 @@ def plot_co2_correlation_matrix():
                 yticklabels=corr.columns.values,
                 square=True,
                 vmin=-1,
+                cmap='RdYlGn',
                 #ax = ax
                 )
     plt.title('CO2 emissions')
     plt.savefig(f'graphics/co2_emis_correlations_{prefix}.jpeg',dpi=400)
 plot_co2_correlation_matrix()
 
+#%%
+
+def heatmap(x, y, size):
+    fig, ax = plt.subplots(figsize=(12,12))
+    
+    # Mapping from column names to integer coordinates
+    x_labels = [v for v in sorted(x.unique())]
+    y_labels = [v for v in sorted(y.unique())]
+    x_to_num = {p[1]:p[0] for p in enumerate(x_labels)} 
+    y_to_num = {p[1]:p[0] for p in enumerate(y_labels)} 
+
+    n_colors = 256 # Use 256 colors for the diverging color palette
+    palette = sns.diverging_palette(20, 220, n=n_colors) # Create the palette
+    color_min, color_max = [-1, 1] # Range of values that will be mapped to the palette, i.e. min and max possible correlation
+
+    def value_to_color(val):
+        val_position = float((val - color_min)) / (color_max - color_min) # position of value in the input range, relative to the length of the input range
+        ind = int(val_position * (n_colors - 1)) # target index in the color palette
+        return palette[ind]
+
+    #color = [value_to_color for ]
+    
+    size_scale = 500
+    ax.scatter(
+        x=x.map(x_to_num), # Use mapping for x
+        y=y.map(y_to_num), # Use mapping for y
+        s=size.abs() * size_scale, # Vector of square sizes, proportional to size parameter
+        c=size.apply(value_to_color), # Vector of square color values, mapped to color palette
+        marker='o' # Use square as scatterplot marker
+    )
+    
+    # Show column labels on the axes
+    ax.set_xticks([x_to_num[v] for v in x_labels])
+    ax.set_xticklabels(x_labels, rotation=90, horizontalalignment='center')
+    ax.set_yticks([y_to_num[v] for v in y_labels])
+    ax.set_yticklabels(y_labels)
+    
+corr = dfs['df_co2'][dfs['df_chain'].s>burnin_samples].corr()
+corr = pd.melt(corr.reset_index(), id_vars='index') # Unpivot the dataframe, so we can get pair of arrays for x and y
+corr.columns = ['x', 'y', 'value']
+corr.loc[corr.query('x == y').index,'value'] = 0
+heatmap(
+    x=corr['x'],
+    y=corr['y'],
+    size=corr['value']
+)
+
+plt.savefig(f'graphics/co2_emis_correlations_{prefix}.jpeg',dpi=400)
 
 #%% CO2 emission correlellogram 
 
@@ -885,7 +978,8 @@ def plot_country_co2_correlation(countries):
 plot_country_co2_correlation(['PL','LV','DE'])
 
 
-#%%
+#%% Plot map with CO2 correlations
+
 #df = dfs['df_nodal_el_price'].copy()
 #
 #df.columns = [network.buses.loc[b].country for b in dfs['df_nodal_el_price'].columns]
@@ -933,16 +1027,31 @@ n_test.madd('Link',
 
 cmap = matplotlib.cm.get_cmap('RdYlGn')
 
+n_colors = 256 # Use 256 colors for the diverging color palette
+palette = sns.diverging_palette(20, 220, n=n_colors) # Create the palette
+color_min, color_max = [-1, 1] # Range of values that will be mapped to the palette, i.e. min and max possible correlation
+
+def value_to_color(val):
+    val_position = float((val - color_min)) / (color_max - color_min) # position of value in the input range, relative to the length of the input range
+    ind = int(val_position * (n_colors - 1)) # target index in the color palette
+    return palette[ind]
+
+colors = [value_to_color(l[1].p_nom) for l in n_test.links.iterrows()]
+size_scaling = lambda x: (abs(x)**1.5)*10
+sizes = (abs(n_test.links.p_nom)**1.5)*10
+sizes[sizes<size_scaling(0.2)]=0
+
 fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
 fig.set_size_inches(9, 9)
 fig.patch.set_visible(False)
 ax.axis('off')
 n_test.plot(
         #bus_sizes=bus_cap/bus_size_factor,
-        bus_colors='red',
+        bus_colors='black',
         #line_colors=ac_color,
-        link_colors=[cmap(l[1].p_nom) for l in n_test.links.iterrows()],
-        link_widths=(abs(n_test.links.p_nom)**2.5)*6,
+        #link_colors=[cmap(l[1].p_nom) for l in n_test.links.iterrows()],
+        link_colors=colors,
+        link_widths=sizes,
         line_widths=0,
         #line_colors='green',
         #link_widths=link_width/linewidth_factor,
@@ -951,14 +1060,14 @@ n_test.plot(
         color_geomap={'ocean': 'white', 'land': (203/255, 203/255, 203/255)}
         )
 
-plt.title('CO2 emission correlations')
+#plt.title('CO2 emission correlations')
 data = np.linspace(-1,1, 100).reshape(10, 10)
 cax = fig.add_axes([0.87, 0.15, 0.025, 0.7])
-im = ax.imshow(data, cmap='RdYlGn',visible=False)
+im = ax.imshow(data, cmap=matplotlib.colors.ListedColormap(palette),visible=False)
 fig.colorbar(im, cax=cax, orientation='vertical')
 
 
-#plt.savefig(f'graphics/co2_correlation_map_{prefix}.jpeg',transparent=True,dpi=400)
+plt.savefig(f'graphics/co2_correlation_map_{prefix}.jpeg',transparent=True,dpi=400)
 
 #%% Plot CO2 price vs reduction correlation 
 
@@ -980,10 +1089,7 @@ country = 'RO'
 plot_country_co2_price_vs_emis(country)
 
 #%% Plot of brownfield capacities
-import matplotlib
-from matplotlib.patches import Circle, Ellipse
-from matplotlib.legend_handler import HandlerPatch
-import cartopy.crs as ccrs
+
 
 def plot_brownfield_capacities():
     bus_size_factor = 80000
