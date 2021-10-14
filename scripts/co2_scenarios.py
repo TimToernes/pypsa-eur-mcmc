@@ -98,34 +98,7 @@ def get_country_emis(network):
     return country_emis
 
 
-# %%
-
-    # Emission share from elec sector assumed to be 35 %, based on 
-    # calculation below 
-    # co2_totals.loc['EU28']['electricity']/co2_totals.loc['EU28'].sum()
-
-    # Total emission reductions relative to 1990 is only expected to be 
-    # 30% according to the following calculation
-    # (co2_targets[1990].sum()-co2_targets['2030 targets'].sum())/co2_targets[1990].sum()
-
-if __name__ == '__main__':
-    if 'snakemake' not in globals():
-        from _helpers import mock_snakemake
-        if not 'Snakefile' in  os.listdir():
-            os.chdir('..')
-        snakemake = mock_snakemake('co2_aloc_scenarios')
-
-    builtins.snakemake = snakemake
-    network = pypsa.Network(snakemake.input.network, 
-                            override_component_attrs=override_component_attrs)
-    network = set_link_locations(network)
-
-    cts = network.buses.country.unique()
-    cts = cts[:33]
-
-    mcmc_variables = network.buses.country.unique()
-    mcmc_variables[np.where(mcmc_variables == '')] = 'EU'
-
+def create_emission_schemes(co2_budget):
     co2_totals = pd.read_csv('data/co2_totals.csv',index_col=0)
     co2_targets = pd.read_csv('data/co2_targets.csv',index_col=0)
     co2_base_emis = co2_totals.loc[cts, "electricity"].sum()
@@ -192,81 +165,121 @@ if __name__ == '__main__':
     poluter_pays = (1/national_co2_no_ME)/sum(1/national_co2_no_ME)*co2_budget
     poluter_pays['ME'] = co2_budget
 
+    return emis_alloc_schemes
 
 
-    
-    #network.snapshots = network.snapshots[0:2]
-    #network.snapshot_weightings = network.snapshot_weightings[0:2]
+# %%
 
-    for emis_alloc in emis_alloc_schemes:
-        
-        country_emis = emis_alloc_schemes[emis_alloc]
+    # Emission share from elec sector assumed to be 35 %, based on 
+    # calculation below 
+    # co2_totals.loc['EU28']['electricity']/co2_totals.loc['EU28'].sum()
 
-        
-        if emis_alloc == 'optimum':
-            snakemake.config['use_local_co2_constraints'] = True
-            snakemake.config['local_emission_constraints'] = country_emis    
-            network.global_constraints.constant['CO2Limit'] = snakemake.config['co2_budget']     
+    # Total emission reductions relative to 1990 is only expected to be 
+    # 30% according to the following calculation
+    # (co2_targets[1990].sum()-co2_targets['2030 targets'].sum())/co2_targets[1990].sum()
 
-            network = set_link_locations(network)
-            network = solve_network.solve_network(network)
+if __name__ == '__main__':
+    if 'snakemake' not in globals():
+        from _helpers import mock_snakemake
+        if not 'Snakefile' in  os.listdir():
+            os.chdir('..')
+        snakemake = mock_snakemake('co2_aloc_scenarios')
 
-            network.duals['national_co2']['df'].iloc[0] = network.global_constraints.loc['CO2Limit','mu']
+    builtins.snakemake = snakemake
+    network = pypsa.Network(snakemake.input.network, 
+                            override_component_attrs=override_component_attrs)
+    network = set_link_locations(network)
 
-            #snakemake.config['use_local_co2_constraints'] = True
-            #snakemake.config['local_emission_constraints'] = get_country_emis(network)    
-            #network.global_constraints.constant['CO2Limit'] = snakemake.config['co2_budget']*10
-#
-            #network = set_link_locations(network)
-            #network = solve_network.solve_network(network)
+    cts = network.buses.country.unique()
+    cts = cts[:33]
 
-        else : 
-            network.global_constraints.constant['CO2Limit'] = snakemake.config['co2_budget']*10
+    mcmc_variables = network.buses.country.unique()
+    mcmc_variables[np.where(mcmc_variables == '')] = 'EU'
+
+
+    scheme_encoding = {'local_1990':1,'local_load':2,'optimum':3,'egalitarinism':4,'rel_ability_to_pay':5}
+
+    co2_budget_list = np.linspace(1,3,20)*snakemake.config['co2_budget']
+
+    network.snapshots = network.snapshots[0:2]
+    network.snapshot_weightings = network.snapshot_weightings[0:2]
+
+    for co2_budget in co2_budget_list:
+
+        emis_alloc_schemes = create_emission_schemes(co2_budget)
+
+        for emis_alloc in emis_alloc_schemes:
             
-            try :
-                country_emis['EU']
-            except :
-                country_emis['EU'] = 0
-            snakemake.config['use_local_co2_constraints'] = True
-            snakemake.config['local_emission_constraints'] = country_emis
-        
-            network = set_link_locations(network)
-            network = solve_network.solve_network(network)
+            country_emis = emis_alloc_schemes[emis_alloc]
 
-        p = f'inter_results/{snakemake.config["run_name"]}/network_{co2_red*100:.0f}_{emis_alloc}.nc'
+            
+            if emis_alloc == 'optimum':
+                snakemake.config['use_local_co2_constraints'] = True
+                snakemake.config['local_emission_constraints'] = country_emis    
+                network.global_constraints.constant['CO2Limit'] = co2_budget 
 
-        if not os.path.exists(f'inter_results/{snakemake.config["run_name"]}/'):
-            os.mkdir(f'inter_results/{snakemake.config["run_name"]}/')
+                network = set_link_locations(network)
+                network = solve_network.solve_network(network)
 
-        if emis_alloc == 'optimum':
-            country_emis = get_country_emis(network)
-            theta = np.array([country_emis[v] for v in mcmc_variables[:-1]])/co2_budget
+                network.duals['national_co2']['df'].iloc[0] = network.global_constraints.loc['CO2Limit','mu']
 
-        else : 
-            theta = np.array([country_emis[v] for v in mcmc_variables[:-1]])/co2_budget
+                #snakemake.config['use_local_co2_constraints'] = True
+                #snakemake.config['local_emission_constraints'] = get_country_emis(network)    
+                #network.global_constraints.constant['CO2Limit'] = snakemake.config['co2_budget']*10
+    #
+                #network = set_link_locations(network)
+                #network = solve_network.solve_network(network)
+
+            else : 
+                network.global_constraints.constant['CO2Limit'] = co2_budget*10
+                
+                try :
+                    country_emis['EU']
+                except :
+                    country_emis['EU'] = 0
+                snakemake.config['use_local_co2_constraints'] = True
+                snakemake.config['local_emission_constraints'] = country_emis
+            
+                network = set_link_locations(network)
+                network = solve_network.solve_network(network)
+
+            p = f'inter_results/{snakemake.config["run_name"]}/network_{co2_red*100:.0f}_{emis_alloc}.nc'
+
+            if not os.path.exists(f'inter_results/{snakemake.config["run_name"]}/'):
+                os.mkdir(f'inter_results/{snakemake.config["run_name"]}/')
+
+            if emis_alloc == 'optimum':
+                country_emis = get_country_emis(network)
+                theta = np.array([country_emis[v] for v in mcmc_variables[:-1]])/co2_budget
+
+            else : 
+                theta = np.array([country_emis[v] for v in mcmc_variables[:-1]])/co2_budget
 
 
-        network.name = os.path.relpath(os.path.normpath(p))
-        network.dual_path = network.name[:-2]+'p'
-        duals = network.dualvalues
-        pickle.dump((network.duals,network.dualvalues),open(network.dual_path, "wb" ))
-        network.theta = theta_to_str(theta)
-        network.export_to_netcdf(p)
+            network.name = os.path.relpath(os.path.normpath(p))
+            network.dual_path = network.name[:-2]+'p'
+            duals = network.dualvalues
+            pickle.dump((network.duals,network.dualvalues),open(network.dual_path, "wb" ))
+            network.theta = theta_to_str(theta)
+            network.c = scheme_encoding[emis_alloc]
+            network.a = 0
+            network.s = 1
+            network.export_to_netcdf(p)
 
-        try : 
-            sol.put(network)
+            try : 
+                sol.put(network)
+            except Exception:
+                man = mp.Manager()
+                sol = solutions(network, man)
+
+        time.sleep(10)
+        sol.merge()
+
+        try :
+            sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
         except Exception:
-            man = mp.Manager()
-            sol = solutions(network, man)
-
-    time.sleep(10)
-    sol.merge()
-
-    try :
-        sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
-    except Exception:
-        os.mkdir(f'results/{snakemake.config["run_name"]}')
-        sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
+            os.mkdir(f'results/{snakemake.config["run_name"]}')
+            sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
 
 
 
