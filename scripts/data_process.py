@@ -147,10 +147,18 @@ def calc_nodal_co2_reduction(dfs,network):
     dfs['df_nodal_co2_reduct'] = (dfs['df_co2'])/(co2_totals_elec*1e6)
     return
 
-def update_secondary_data(dfs,network,base_emis,generators,links):
+def update_secondary_data(dfs,network,base_emis,generators,links,scenario_names):
 # Calc data for cost increase and co2 reduction 
 
-    cost_increase = (dfs['df_secondary'].system_cost-network.objective_optimum)/network.objective_optimum*100
+    optimal_index = dfs['df_chain'].query(f"year == '{scenario_names}'").index
+    minimum_system_cost =  min(dfs['df_secondary'].loc[optimal_index,'system_cost'].values)
+
+    #filt = dfs['df_chain'].query('year != "sweep_2030_f"').index
+    #minimum_system_cost = min(dfs['df_secondary'].loc[filt,'system_cost'])
+    #minimum_system_cost = network.objective_optimum
+
+    #cost_increase = (dfs['df_secondary'].system_cost-network.objective_optimum)/network.objective_optimum*100
+    cost_increase = ((dfs['df_secondary'].system_cost-minimum_system_cost)/minimum_system_cost)*100
 
     dfs['df_secondary']['cost_increase'] = cost_increase
     dfs['df_secondary']['co2_emission'] = dfs['df_co2'].sum(axis=1)
@@ -266,12 +274,12 @@ def calc_country_dfs(dfs,network,links,generators,storage_units):
 
 
 
-def data_postprocess(dfs,networks,base_emis,co2_red=0.45):
+def data_postprocess(dfs,networks,base_emis,co2_red=0.45,scenario_names='scenarios_2030_f'):
     
     network = list(networks.values())[0]
 
     generators, links, stores, storage_units = create_networks_dataframes(networks)
-    update_secondary_data(dfs,network,base_emis,generators,links)
+    update_secondary_data(dfs,network,base_emis,generators,links,scenario_names)
 
 
     create_tech_sum_df(dfs, networks,generators)
