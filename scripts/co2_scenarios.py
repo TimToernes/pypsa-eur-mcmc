@@ -103,7 +103,7 @@ def create_emission_schemes(co2_budget):
     co2_targets = pd.read_csv('data/co2_targets.csv',index_col=0)
     co2_base_emis = co2_totals.loc[cts, "electricity"].sum()
     co2_budget = snakemake.config['co2_budget']
-    co2_red = co2_budget/(co2_base_emis*1e6)
+    co2_red = 1-co2_budget/(co2_base_emis*1e6)
 
     df_country_pop, df_country_gdp = create_country_pop_df(network)
 
@@ -112,13 +112,13 @@ def create_emission_schemes(co2_budget):
     emis_alloc_schemes = {}
 
     #### Local 1990 - Soverignity
-    local_1990 = national_co2*co2_red*1e6
+    local_1990 = national_co2*(1-co2_red)*1e6
     emis_alloc_schemes['local_1990'] = local_1990
 
 
     #### Local load - 
     load = network.loads_t.p.groupby(network.buses.country,axis=1).sum().sum()
-    local_load = load/sum(load)*co2_base_emis*co2_red*1e6
+    local_load = load/sum(load)*co2_base_emis*(1-co2_red)*1e6
     local_load['EU'] = np.inf
     emis_alloc_schemes['local_load'] = local_load
 
@@ -165,7 +165,7 @@ def create_emission_schemes(co2_budget):
     poluter_pays = (1/national_co2_no_ME)/sum(1/national_co2_no_ME)*co2_budget
     poluter_pays['ME'] = co2_budget
 
-    return emis_alloc_schemes
+    return emis_alloc_schemes, co2_red
 
 
 # %%
@@ -204,9 +204,10 @@ if __name__ == '__main__':
     network.snapshots = network.snapshots[0:2]
     network.snapshot_weightings = network.snapshot_weightings[0:2]
 
-    for co2_budget in co2_budget_list:
+    for i,co2_budget in enumerate(co2_budget_list):
 
-        emis_alloc_schemes = create_emission_schemes(co2_budget)
+        emis_alloc_schemes, co2_red = create_emission_schemes(co2_budget)
+        
 
         for emis_alloc in emis_alloc_schemes:
             
@@ -263,7 +264,7 @@ if __name__ == '__main__':
             network.theta = theta_to_str(theta)
             network.c = scheme_encoding[emis_alloc]
             network.a = 0
-            network.s = 1
+            network.s = int(co2_red*100)
             network.export_to_netcdf(p)
 
             try : 
@@ -272,14 +273,14 @@ if __name__ == '__main__':
                 man = mp.Manager()
                 sol = solutions(network, man)
 
-        time.sleep(10)
-        sol.merge()
+    time.sleep(10)
+    sol.merge()
 
-        try :
-            sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
-        except Exception:
-            os.mkdir(f'results/{snakemake.config["run_name"]}')
-            sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
+    try :
+        sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
+    except Exception:
+        os.mkdir(f'results/{snakemake.config["run_name"]}')
+        sol.save_csv(f'results/{snakemake.config["run_name"]}/result_')
 
 
 
