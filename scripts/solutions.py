@@ -39,7 +39,8 @@ class solutions:
         try : 
             self.national_co2_dual = pd.DataFrame(data={get_dual(network,'national_co2',c).name :get_dual(network,'national_co2',c)[0] for c in network.dualvalues.loc['national_co2'].index},index=[0])
         except : 
-            self.national_co2_dual = pd.DataFrame()
+            self.national_co2_dual = pd.DataFrame(data={country:network.global_constraints.loc['CO2Limit','mu'] for country in network.buses.country.unique()[:-1]})
+            #self.national_co2_dual = pd.DataFrame()
 
         try : 
             #mean_nodal_cost = get_dual(network,'Bus','marginal_price').mean()
