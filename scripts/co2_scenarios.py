@@ -129,6 +129,8 @@ def create_emission_schemes(co2_budget):
     allowable_emis['EU'] = np.inf
     emis_alloc_schemes['optimum'] = allowable_emis
 
+    emis_alloc_schemes['optimum70'] = allowable_emis
+
     ### EU ETS
     EU_ETS_country_share = co2_targets['2030 targets']/co2_targets['2030 targets'].sum()
     eu_ets_target = EU_ETS_country_share * co2_base_emis* (1-0.30) * 1e6 
@@ -217,10 +219,10 @@ if __name__ == '__main__':
     mcmc_variables[np.where(mcmc_variables == '')] = 'EU'
 
 
-    scheme_encoding = {'local_1990':1,'local_load':2,'optimum':3,'egalitarinism':4,'rel_ability_to_pay':5}
+    scheme_encoding = {'local_1990':1,'local_load':2,'optimum':3,'egalitarinism':4,'rel_ability_to_pay':5,'optimum70':6}
 
-    co2_budget_list = np.linspace(1.1,1.6,50)*snakemake.config['co2_budget']
-    #co2_budget_list = np.array([1])*snakemake.config['co2_budget']
+    #co2_budget_list = np.linspace(1.1,1.6,50)*snakemake.config['co2_budget']
+    co2_budget_list = np.array([1])*snakemake.config['co2_budget']
 
     #network.snapshots = network.snapshots[0:2]
     #network.snapshot_weightings = network.snapshot_weightings[0:2]
@@ -235,10 +237,13 @@ if __name__ == '__main__':
             country_emis = emis_alloc_schemes[emis_alloc]
 
             
-            if emis_alloc == 'optimum':
+            if emis_alloc == 'optimum' or emis_alloc == 'optimum70' :
                 snakemake.config['use_local_co2_constraints'] = True
-                snakemake.config['local_emission_constraints'] = country_emis    
-                network.global_constraints.constant['CO2Limit'] = co2_budget 
+                snakemake.config['local_emission_constraints'] = country_emis 
+                if emis_alloc == 'optimum':
+                    network.global_constraints.constant['CO2Limit'] = co2_budget 
+                elif emis_alloc == 'optimum70':
+                    network.global_constraints.constant['CO2Limit'] = snakemake.config['base_emission']*0.3
 
                 network = set_link_locations(network)
                 network = solve_network.solve_network(network)
