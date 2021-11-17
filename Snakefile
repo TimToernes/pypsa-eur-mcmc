@@ -1,5 +1,5 @@
 
-#configfile: "config.yaml"
+configfile: "config.yaml"
 
 wildcard_constraints:
     sample="[1-9]?[0-9]?[0-9]?[0-9]"

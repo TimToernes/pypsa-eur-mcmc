@@ -17,6 +17,8 @@ from solutions import solutions
 import multiprocessing as mp
 import time
 from iso3166 import countries as iso_countries
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
@@ -168,6 +170,24 @@ def create_emission_schemes(co2_budget):
     return emis_alloc_schemes, co2_red
 
 
+#%%
+def plot_schemes(emis_alloc_schemes):
+
+    df_co2_schemes = pd.DataFrame(emis_alloc_schemes)*1e-6
+    df_co2_schemes.drop('EU',inplace=True)
+    df_co2_schemes['country'] = df_co2_schemes.index
+    df_co2_schemes.rename(columns={'optimum':'150% coal production','local_1990':'Grandfathering','local_load':'Sovereignty','egalitarinism':'Egalitarinism','rel_ability_to_pay':'Ability to pay'},inplace=True)
+
+    df_long = pd.melt(df_co2_schemes,id_vars='country')
+    df_long.rename(columns={'variable':'Scenario'},inplace=True)
+
+    plt.subplots(figsize=(11,5))
+    sns.stripplot(data=df_long,x='country',y='value',hue='Scenario',jitter=0,palette = 'bright')
+    plt.ylabel('CO$_2$ reduction target\n[Mton CO2]')
+    #plt.gca().set_yscale('log')
+    plt.legend(bbox_to_anchor=(0, 1.15), loc=2, borderaxespad=0.,ncol=3)
+    plt.savefig(f'graphics/co2_allocation_scenarios.jpeg',transparent=False,dpi=400)
+
 # %%
 
     # Emission share from elec sector assumed to be 35 %, based on 
@@ -201,8 +221,8 @@ if __name__ == '__main__':
 
     co2_budget_list = np.linspace(1,3,20)*snakemake.config['co2_budget']
 
-    network.snapshots = network.snapshots[0:2]
-    network.snapshot_weightings = network.snapshot_weightings[0:2]
+    #network.snapshots = network.snapshots[0:2]
+    #network.snapshot_weightings = network.snapshot_weightings[0:2]
 
     for i,co2_budget in enumerate(co2_budget_list):
 

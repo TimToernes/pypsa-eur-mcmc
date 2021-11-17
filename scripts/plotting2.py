@@ -38,7 +38,7 @@ emis_1990_H = 2206933437.8055553
 
 base_emis = emis_1990
 
-datasets = ['mcmc_2030_f', 'sweep_2030_f', 'scenarios_2030_f']
+datasets = ['mcmc_2030_f', 'sweep_2030_f', 'scenarios_2030_f','scenarios_sweep3_2030_f']
 
 scenarios = ['Grandfathering', 'Sovereignty', 'Efficiency', 'Egalitarianism', 'Ability to pay']
 
@@ -163,10 +163,35 @@ def plot_cost_vs_co2(prefix='',save=False,
         index_sweep = dfs['df_chain'].query(f'year == "{sweep_name}"').index
         df_sweep = df.iloc[index_sweep]
 
-    if plot_sweep:
-        index_scenarios = dfs['df_chain'].query(f'year == "scenarios_2030_f"').index
-        df_scenarios = df.iloc[index_scenarios]
+    if plot_scenarios:
 
+        scenarios_style = 'all55p'
+
+        #scheme_encoding = {'local_1990':1,'local_load':2,'optimum':3,'egalitarinism':4,'rel_ability_to_pay':5}
+        scheme_encoding = {'Grandfathering':1,'Sovereignty':2,'Efficiency':3,'Egalitarianism':4,'Ability to pay':5}
+        ivd = {v: k for k, v in scheme_encoding.items()}
+
+        if scenarios_style == 'original':
+
+            index_scenarios = dfs['df_chain'].query(f'year == "scenarios_2030_f"').index
+            df_scenarios = df.iloc[index_scenarios]
+            df_scenarios['scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[index_scenarios].c]
+
+        elif scenarios_style == 'sweep':
+
+            index_scenarios = dfs['df_chain'].query(f'year == "scenarios_sweep3_2030_f"').index
+            df_scenarios = df.iloc[index_scenarios]
+            df_scenarios['scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[index_scenarios].c]
+
+        
+        elif scenarios_style == 'all55p':
+            
+            index_scenarios = dfs['df_chain'].query(f'year == "scenarios_sweep3_2030_f" | year == "scenarios_2030_f"').index
+            index_new_scenarios = dfs['df_secondary'].iloc[index_scenarios].query(f'54.99 < co2_reduction < 55.101').index
+            df_scenarios = df.iloc[index_new_scenarios]
+
+            df_scenarios['scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[index_new_scenarios].c]
+            df_scenarios.drop_duplicates('scenario',inplace=True)
     # filter out burnin samples
     #df = df[ filt_burnin & filt_co2_cap]
     df = df[ filt_burnin ]
@@ -174,10 +199,13 @@ def plot_cost_vs_co2(prefix='',save=False,
     cost_limits = [df[cost_label].min(),df[cost_label].max()]
     co2_limits = [df[co2_label].min(),df[co2_label].max()]
 
+    def scenarios_plot2():
+        sns.lineplot(data=df_scenarios,x=co2_label,y=cost_label,hue='scenario',ax=sns_plot.ax_joint)
 
 
     def scenarios_plot():
         scenario_names = scenarios#['Local Load','Local 1990','Optimum','EU ETS']
+        scenario_names = df_scenarios['scenario']
         x = df_scenarios[co2_label]
         y = df_scenarios[cost_label]
         #plt.gca()
@@ -226,7 +254,7 @@ def plot_cost_vs_co2(prefix='',save=False,
 
     # Draw optimal solution on plot 
     if plot_scenarios:
-        scenarios_plot()
+        scenarios_plot2()
 
     sns_plot.ax_joint.set_xlim((54,76))
     sns_plot.ax_joint.set_ylim((-1,19))
@@ -235,7 +263,7 @@ def plot_cost_vs_co2(prefix='',save=False,
         sns_plot.savefig(f'graphics/cost_vs_co2_{prefix}.pdf')
 
 
-plot_cost_vs_co2(save=True,prefix=prefix,plot_sweep=True,plot_optimum=True,plot_scenarios=True)
+plot_cost_vs_co2(save=True,prefix=prefix,plot_sweep=True,plot_optimum=False,plot_scenarios=True)
 
 #%%############ Plot Boxplots ############################
 
@@ -262,7 +290,7 @@ def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co
     df = pd.melt(df_wide,value_vars=model_countries,id_vars='year',var_name='Country')
     #df = df.query('year == 2030 | year == 2050')
 
-    f,ax = plt.subplots(figsize=(11,3))
+    f,ax = plt.subplots(figsize=(11,4))
     sns_plot = sns.boxplot(x='Country', y="value", #hue_order=model_countries, #hue="year",
                         data=df, 
                         #palette="muted",
@@ -276,31 +304,38 @@ def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co
 
         palette = 'bright'
         #list_color = [sns.color_palette(palette)[i] for i in range(5)]
-        list_color =  {'Grandfathering':sns.color_palette(palette)[0],
-                        'Sovereignty':sns.color_palette(palette)[1],
-                        'Efficiency':sns.color_palette(palette)[2],
-                        'Egalitarianism':sns.color_palette(palette)[3],
-                        'Ability to pay':sns.color_palette(palette)[4]}
-        list_mak = {'Grandfathering':'o','Sovereignty':'x','Efficiency':'^','Egalitarianism':'v','Ability to pay':'s'}
+        #list_color =  {'Grandfathering':sns.color_palette(palette)[0],
+        #                'Sovereignty':sns.color_palette(palette)[1],
+        #                'Efficiency':sns.color_palette(palette)[2],
+        #                'Egalitarianism':sns.color_palette(palette)[3],
+        #                'Ability to pay':sns.color_palette(palette)[4]}
+        list_color =  {'Grandfathering':'#88E0EF',
+                        'Sovereignty':'#161E54',
+                        'Efficiency':'#FF5151',
+                        'Egalitarianism':'#B000B9',
+                        'Ability to pay':'#FF9B6A'}                        
+        list_mak = {'Grandfathering':'o','Sovereignty':'D','Efficiency':'^','Egalitarianism':'v','Ability to pay':'s'}
         list_lab = scenarios
         
         df_optimal = pd.melt(df_wide_optimal,value_vars=model_countries,id_vars=['year','Scenario'],var_name='Country')
 
-        for i in range(len(scenarios)):
+        #for i in range(len(scenarios)):
 
-            sns.stripplot(x='Country',y='value',#hue='Country',
-                            data=df_optimal.query(f'Scenario == "{scenarios[i]}"'),
-                            order=df_wide.columns[:-1],
-                            #jitter=0.5,
-                            color=list_color[scenarios[i]],
-                            linewidth=1,
-                            marker=list_mak[scenarios[i]],
-                            #palette={'local load':'g','local 1990':'orange','Optimum unconstrained':'c','Optimum':'r','EU ETS':'b'},
-                            #palette='bright',
-                            size=5,
-                            ax=ax,)
+        sns.stripplot(x='Country',y='value',hue='Scenario',
+                        data=df_optimal,#.query(f'Scenario == "{scenarios[i]}"'),
+                        order=df_wide.columns[:-1],
+                        jitter=0.15,
+                        dodge=True,
+                        #color=list_color[scenarios[i]],
+                        linewidth=0,
+                        alpha=0.9,
+                        #marker=list_mak[scenarios[i]],
+                        #palette={'local load':'g','local 1990':'orange','Optimum unconstrained':'c','Optimum':'r','EU ETS':'b'},
+                        palette=list_color,
+                        size=5,
+                        ax=ax,)
 
-        make_legend([list_color[k] for k in scenarios],[list_mak[k] for k in scenarios],list_lab)
+        #make_legend([list_color[k] for k in scenarios],[list_mak[k] for k in scenarios],list_lab)
 
     plt.ylabel(ylabel)
     plt.gca().set_title(title, y=1.0, pad=-14)
@@ -327,6 +362,22 @@ if not 'year' in index_order_co2mwh:
 
 #%%
 
+# Optimal index all55%
+index_scenarios = dfs['df_chain'].query(f'year == "scenarios_sweep3_2030_f" | year == "scenarios_2030_f"').index
+optimal_index = dfs['df_secondary'].iloc[index_scenarios].query(f'54.99 < co2_reduction < 55.101').index
+optimal_index = dfs['df_chain'].iloc[optimal_index].c.drop_duplicates().index
+prefix = 'all55_'+prefix
+
+# Optimal index original 
+#optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+
+scheme_encoding = {'Grandfathering':1,'Sovereignty':2,'Efficiency':3,'Egalitarianism':4,'Ability to pay':5}
+ivd = {v: k for k, v in scheme_encoding.items()}
+
+scenarios = list(dfs['df_chain'].iloc[optimal_index].c.map(ivd).values)
+
+#%%
+
 def plot_co2_pr_mwh_box():
 
     df = dfs['df_co2']/dfs['df_country_energy']
@@ -336,7 +387,7 @@ def plot_co2_pr_mwh_box():
     df = df[index_order_co2mwh]
     df['year'] = dfs['df_chain']['year']
 
-    optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+    #optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
     #optimal_index = optimal_index[:-1]
     #optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
     df_optimal = df.iloc[optimal_index]
@@ -354,7 +405,7 @@ def plot_co2_pr_mwh_box():
                            name='co2_mwh_box',
                            fliersize=0.1,
                            linewidth=0.5,
-                           color='#8f897b'
+                           color='#bdbdbd'
                            )
     plt.gca()
 
@@ -378,7 +429,7 @@ def plot_elec_price_box():
     
     
 
-    optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+    #optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
     #optimal_index = optimal_index[:-1]
     #optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
     df_optimal = df.iloc[optimal_index]
@@ -398,7 +449,7 @@ def plot_elec_price_box():
                            ylim=(0,80),
                            fliersize=0.1,
                            linewidth=0.5,
-                           color='#8f897b'
+                           color='#bdbdbd'
                            )
     
 
@@ -414,7 +465,7 @@ def plot_co2_price_box():
     #df = df[index_order_co2mwh]
     
 
-    optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+    #optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
     #optimal_index = optimal_index[:-1]
     #optimal_index = optimal_index.append(dfs['df_chain'].query('s == 1 & c == 1').index)
     df_optimal = df.iloc[optimal_index]
@@ -434,7 +485,7 @@ def plot_co2_price_box():
                            #whis=(2,98),
                            fliersize=0.01,
                            linewidth=0.5,
-                           color='#8f897b'
+                           color='#bdbdbd'
                            )
 
 plot_co2_price_box()
@@ -470,7 +521,7 @@ def plot_co2_reduction_box():
                            whis=(2,98),
                            fliersize=0.1,
                            linewidth=0.5,
-                           color='#8f897b'
+                           color='#bdbdbd'
                            )
 
 plot_co2_reduction_box()
@@ -563,9 +614,11 @@ def plot_unused_co2():
                 save=True,
                 fliersize=0.1,
                 linewidth=0.5,
-                color='#8f897b')
+                color='#bdbdbd')
 
 plot_unused_co2()
+
+
 
 #%% Plot co2 allocated vs el price 
 
@@ -589,9 +642,11 @@ def plot_country_co2_vs_elec_price(countries):
         y = y[filt_burnin & filt_co2_cap]
 
         ax[i].scatter(x,y,
-                        alpha=0.01,
+                        alpha=0.1,
                         #c='#8f897b',
-                        c='#5c5c5c'
+                        #c='#5c5c5c'
+                        s=0.2,
+                        c='k'
                         )
         ax[i].set_xticks(np.arange(0, max(x)+1, 20))
 
@@ -603,6 +658,41 @@ def plot_country_co2_vs_elec_price(countries):
 plot_country_co2_vs_elec_price(['PL','NL','AT','FI','SE'])
 
 
+
+#%% 
+
+scenarios_index = dfs['df_chain'].query('year == "scenarios_sweep3_2030_f" | year == "scenarios_2030_f"').index
+
+df = pd.DataFrame()
+
+#df['co2_emittted'] = dfs['df_co2'].iloc[scenarios_index].sum(axis=1)
+df['co2_emittted'] =dfs['df_secondary']['co2_emission'].iloc[scenarios_index]
+
+df['co2_assigned']  = (1-dfs['df_chain'].iloc[scenarios_index].s*1e-2)/(0.45)#*base_emis
+
+df['co2_assigned']  = (1-dfs['df_chain'].iloc[scenarios_index].s*1e-2)*base_emis
+
+#df['scenario'] = dfs['df_chain'].query('year == "scenarios_sweep_2030_f"').c
+
+df['co2_assigned'] = df['co2_assigned']*1e-6
+df['co2_assigned'] = df['co2_assigned']*1e-6
+
+scheme_encoding = {'Grandfathering':1,'Sovereignty':2,'Efficiency':3,'Egalitarianism':4,'Ability to pay':5}
+ivd = {v: k for k, v in scheme_encoding.items()}
+
+df['Scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[scenarios_index].c]
+
+sns.lineplot(data=df,y='co2_emittted',x='co2_assigned',hue='Scenario')
+#plt.vlines(base_emis*0.45,2e8,8e8)
+#plt.hlines(base_emis*0.45,0.5,2)
+plt.hlines(base_emis*0.45,0.3*1e9,1.4*1e9,colors='k')
+#plt.plot([0,1e9],[0,1e9])
+#plt.ylim(4e8,8e8)
+plt.xlim(3e8,14e8)
+plt.ylabel('Realized emissions\n[ton CO$_2$]')
+plt.xlabel('Assigned emissions\n[ton CO$_2$]')
+
+
 #%% Plot national co2 reduction vs co2 reduction cost
 
 def plot_country_red_vs_co2_price(countries):
@@ -612,6 +702,7 @@ def plot_country_red_vs_co2_price(countries):
         df_nodal_co2_reduct = dfs['df_nodal_co2_reduct']*100
 
         ax[i%2,i%3].scatter(y=dfs['df_nodal_co2_price'][country],x=df_nodal_co2_reduct[country],alpha=0.01 )
+        #ax[i%2,i%3].scatter(y=df_country_el_price[country],x=dfs['df_nodal_co2_price'][country],alpha=0.01 )
         #sns.histplot(x=dfs['df_nodal_co2_price'].values.flatten(),y=df_nodal_co2_reduct.values.flatten(),
         #                bins=60,
         #                binrange=((2,100),(0,1)),
@@ -632,6 +723,12 @@ def plot_country_red_vs_co2_price(countries):
 
 plot_country_red_vs_co2_price(['RO','GB','ES','DE','DK','PL'])
 
+#%%
+
+I = 96085 # CApital cost pr year
+
+
+I/(0.239623*8760)
 
 #%% Plot histogram of all co2 prices vs co2 reductions
 
@@ -686,11 +783,17 @@ sns.histplot(x=df_country_el_price.values.flatten(),y=df_nodal_co2_reduct.values
 
 df_renewables = network.generators.query('p_nom_extendable == False').groupby(['country','carrier']).sum().p_nom.unstack(level=1)
 
-df_conventionals =  network.links.query('p_nom_extendable == False & location != ""').groupby(['country','carrier']).sum().p_nom.unstack(level=1)
+
+conventionals = network.links.query('p_nom_extendable == False & location != ""')
+conventionals.loc[:,'p_nom'] = conventionals['p_nom'] * conventionals['efficiency']
+
+df_conventionals =  conventionals.groupby(['country','carrier']).sum().p_nom.unstack(level=1)
 
 df = pd.concat([df_renewables,df_conventionals],axis=1)
 df.fillna(0,inplace=True)
 
+
+#%%
 print(df.to_latex(float_format='{:0.1f}'.format))
 
 
@@ -1108,6 +1211,34 @@ def plot_country_co2_price_vs_emis(country):
 country = 'RO'
 plot_country_co2_price_vs_emis(country)
 
+
+#%% Plot of renewable capacities 
+
+
+def plot_box_renewable_capacity():
+    gens = gens = dfs['df_gen_p'].groupby([network.generators.carrier,network.generators.country],axis=1).sum()
+    links = dfs['df_links'].groupby([network.links.carrier,network.links.country],axis=1).sum()
+
+    #gens_long = pd.melt(gens).query('country != ""')
+    gen_wind = pd.melt(gens.loc[:,['offwind','onwind','offwind-ac','offwind-dc']].groupby(level=1,axis=1).sum())
+    gen_wind['carrier'] = 'wind'
+    gen_solar = pd.melt(gens.loc[:,['solar']].groupby(level=1,axis=1).sum())
+    gen_solar['carrier'] = 'solar'
+
+    gen_gas = pd.melt(links.loc[:,['CCGT','OCGT']].groupby(level=1,axis=1).sum())
+    gen_gas['carrier'] = 'gas'
+
+    gen_renewables = pd.concat([gen_wind,gen_solar,gen_gas])
+
+    #gen_renewables['country'] = gen_renewables.index
+
+    fig, ax = plt.subplots()
+    fig.set_size_inches(12, 5)
+    sns.boxplot(data=gen_renewables,x='country',y='value',hue='carrier',fliersize=0,linewidth=0.5)
+
+plot_box_renewable_capacity()
+
+
 #%% Plot of brownfield capacities
 
 
@@ -1125,10 +1256,17 @@ def plot_brownfield_capacities():
         s = network.generators.query(f'carrier == "{tech}" & p_nom_extendable == False').p_nom_opt.groupby(network.generators.bus).sum()
 
         if len(s)<=1:
-            s = network.links.query(f'carrier == "{tech}" & p_nom_extendable == False').p_nom_opt.groupby(network.links.bus1).sum()
+            links_tech = network.links.query(f'carrier == "{tech}" & p_nom_extendable == False')
+            links_tech = links_tech['p_nom'] * links_tech['efficiency']
+            s = links_tech.groupby(network.links.bus1).sum()
+            #s = network.links.query(f'carrier == "{tech}" & p_nom_extendable == False').p_nom_opt.groupby(network.links.bus1).sum()
 
         if len(s)<=1:
-            s = network.storage_units.query(f'carrier == "{tech}" & p_nom_extendable == False').p_nom_opt.groupby(network.storage_units.bus).sum()
+            
+            stores_tech = network.storage_units.query(f'carrier == "{tech}" & p_nom_extendable == False')
+            stores_tech = stores_tech['p_nom'] * stores_tech['efficiency_dispatch']
+            s = stores_tech.groupby(network.storage_units.bus).sum()
+            #s = network.storage_units.query(f'carrier == "{tech}" & p_nom_extendable == False').p_nom_opt.groupby(network.storage_units.bus).sum()
 
 
         s.index = pd.MultiIndex.from_arrays([s.index,[tech]*len(s)],names=['bus','tech'])
@@ -1829,4 +1967,17 @@ assign_locations(network)
 energy = calculate_energy(network,energy)
 
 
+# %% Combine csv files for sweep run  
+
+import glob
+
+os.chdir('results/scenarios_sweep_2030_f')
+all_filenames = [i for i in glob.glob('*.{}'.format('csv'))]
+os.chdir('/Users/au518895/OneDrive - Aarhus Universitet/Projects/pypsa-eur-mcmc')
+
+for f in all_filenames:
+    #combine files
+    combined_csv = pd.concat([pd.read_csv(fi) for fi in [f'results/scenarios_sweep_2030_f/{f}',f'results/scenarios_sweep2_2030_f/{f}'] ])
+    #export to csv
+    combined_csv.to_csv( f'results/scenarios_sweep3_2030_f/{f}', index=False, encoding='utf-8-sig')
 # %%

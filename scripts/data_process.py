@@ -150,7 +150,8 @@ def calc_nodal_co2_reduction(dfs,network):
 def update_secondary_data(dfs,network,base_emis,generators,links,scenario_names):
 # Calc data for cost increase and co2 reduction 
 
-    optimal_index = dfs['df_chain'].query(f"year == '{scenario_names}'").index
+    #optimal_index = dfs['df_chain'].query(f"year == '{scenario_names}'").index
+    optimal_index = dfs['df_chain'].query('c==1 & s==1').index
     minimum_system_cost =  min(dfs['df_secondary'].loc[optimal_index,'system_cost'].values)
 
     #filt = dfs['df_chain'].query('year != "sweep_2030_f"').index
