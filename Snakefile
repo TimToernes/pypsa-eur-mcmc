@@ -86,4 +86,5 @@ rule co2_aloc_scenarios:
     input:
         network=config['network']
     threads: 4
+    resources: time='4-00:00:00'
     script: 'scripts/co2_scenarios.py'

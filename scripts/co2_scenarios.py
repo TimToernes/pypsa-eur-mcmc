@@ -104,7 +104,7 @@ def create_emission_schemes(co2_budget):
     co2_totals = pd.read_csv('data/co2_totals.csv',index_col=0)
     co2_targets = pd.read_csv('data/co2_targets.csv',index_col=0)
     co2_base_emis = co2_totals.loc[cts, "electricity"].sum()
-    co2_budget = snakemake.config['co2_budget']
+    #co2_budget = snakemake.config['co2_budget']
     co2_red = 1-co2_budget/(co2_base_emis*1e6)
 
     df_country_pop, df_country_gdp = create_country_pop_df(network)
@@ -219,7 +219,8 @@ if __name__ == '__main__':
 
     scheme_encoding = {'local_1990':1,'local_load':2,'optimum':3,'egalitarinism':4,'rel_ability_to_pay':5}
 
-    co2_budget_list = np.linspace(1,3,20)*snakemake.config['co2_budget']
+    co2_budget_list = np.linspace(1.1,1.6,50)*snakemake.config['co2_budget']
+    #co2_budget_list = np.array([1])*snakemake.config['co2_budget']
 
     #network.snapshots = network.snapshots[0:2]
     #network.snapshot_weightings = network.snapshot_weightings[0:2]
@@ -282,9 +283,9 @@ if __name__ == '__main__':
             duals = network.dualvalues
             pickle.dump((network.duals,network.dualvalues),open(network.dual_path, "wb" ))
             network.theta = theta_to_str(theta)
-            network.c = scheme_encoding[emis_alloc]
-            network.a = 0
-            network.s = int(co2_red*100)
+            network.chain = scheme_encoding[emis_alloc]
+            network.accepted = 0
+            network.sample = int(co2_red*100)
             network.export_to_netcdf(p)
 
             try : 

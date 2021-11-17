@@ -3,7 +3,7 @@ logging:
   level: INFO
   format: '%(levelname)s:%(name)s:%(message)s'
 
-run_name: 'scenarios_2030_f'
+run_name: 'scenarios_sweep2_2030_f'
 configfile: 'config.yaml'
 network: 'data/networks/elec_s_37_lv1__Co2L0p55-3H-solar+p3_2030_f.nc'
 
