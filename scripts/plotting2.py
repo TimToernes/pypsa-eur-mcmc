@@ -165,23 +165,23 @@ def plot_cost_vs_co2(prefix='',save=False,
 
     if plot_scenarios:
 
-        scenarios_style = 'all55p'
+        scenarios_style = 'original'
 
         #scheme_encoding = {'local_1990':1,'local_load':2,'optimum':3,'egalitarinism':4,'rel_ability_to_pay':5}
-        scheme_encoding = {'Grandfathering':1,'Sovereignty':2,'Efficiency':3,'Egalitarianism':4,'Ability to pay':5}
+        scheme_encoding = {'Grandfathering':1,'Sovereignty':2,'Efficiency 55%':3,'Egalitarianism':4,'Ability to pay':5,'Efficiency 70%':6}
         ivd = {v: k for k, v in scheme_encoding.items()}
 
         if scenarios_style == 'original':
 
             index_scenarios = dfs['df_chain'].query(f'year == "scenarios_2030_f"').index
             df_scenarios = df.iloc[index_scenarios]
-            df_scenarios['scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[index_scenarios].c]
+            df_scenarios['Scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[index_scenarios].c]
 
         elif scenarios_style == 'sweep':
 
             index_scenarios = dfs['df_chain'].query(f'year == "scenarios_sweep3_2030_f"').index
             df_scenarios = df.iloc[index_scenarios]
-            df_scenarios['scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[index_scenarios].c]
+            df_scenarios['Scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[index_scenarios].c]
 
         
         elif scenarios_style == 'all55p':
@@ -190,22 +190,19 @@ def plot_cost_vs_co2(prefix='',save=False,
             index_new_scenarios = dfs['df_secondary'].iloc[index_scenarios].query(f'54.99 < co2_reduction < 55.101').index
             df_scenarios = df.iloc[index_new_scenarios]
 
-            df_scenarios['scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[index_new_scenarios].c]
-            df_scenarios.drop_duplicates('scenario',inplace=True)
+            df_scenarios['Scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[index_new_scenarios].c]
+            df_scenarios.drop_duplicates('Scenario',inplace=True)
     # filter out burnin samples
     #df = df[ filt_burnin & filt_co2_cap]
-    df = df[ filt_burnin ]
-
-    cost_limits = [df[cost_label].min(),df[cost_label].max()]
-    co2_limits = [df[co2_label].min(),df[co2_label].max()]
+    
 
     def scenarios_plot2():
-        sns.lineplot(data=df_scenarios,x=co2_label,y=cost_label,hue='scenario',ax=sns_plot.ax_joint)
+        sns.lineplot(data=df_scenarios,x=co2_label,y=cost_label,hue='Scenario',ax=sns_plot.ax_joint)
 
 
     def scenarios_plot():
         scenario_names = scenarios#['Local Load','Local 1990','Optimum','EU ETS']
-        scenario_names = df_scenarios['scenario']
+        scenario_names = df_scenarios['Scenario']
         x = df_scenarios[co2_label]
         y = df_scenarios[cost_label]
         #plt.gca()
@@ -221,9 +218,9 @@ def plot_cost_vs_co2(prefix='',save=False,
                 offset = -0.9
             else :
                 offset = 0 
-            sns_plot.ax_joint.annotate(txt, (x.iloc[i], y.iloc[i]+offset),fontsize=14)
+            sns_plot.ax_joint.annotate(txt, (x.iloc[i], y.iloc[i]+offset),fontsize=12)
 
-
+    df = df[ filt_burnin ]
     sns_plot = sns.jointplot(data=df,
                    x=co2_label,
                    y=cost_label,
@@ -254,7 +251,7 @@ def plot_cost_vs_co2(prefix='',save=False,
 
     # Draw optimal solution on plot 
     if plot_scenarios:
-        scenarios_plot2()
+        scenarios_plot()
 
     sns_plot.ax_joint.set_xlim((54,76))
     sns_plot.ax_joint.set_ylim((-1,19))
@@ -311,9 +308,10 @@ def plot_box(df_wide,df_wide_optimal=None,prefix='',save=False,title='',name='co
         #                'Ability to pay':sns.color_palette(palette)[4]}
         list_color =  {'Grandfathering':'#88E0EF',
                         'Sovereignty':'#161E54',
-                        'Efficiency':'#FF5151',
+                        'Efficiency 55%':'#FF5151',
                         'Egalitarianism':'#B000B9',
-                        'Ability to pay':'#FF9B6A'}                        
+                        'Ability to pay':'#FF9B6A',
+                        'Efficiency 70%':'#4287f5',}                        
         list_mak = {'Grandfathering':'o','Sovereignty':'D','Efficiency':'^','Egalitarianism':'v','Ability to pay':'s'}
         list_lab = scenarios
         
@@ -363,15 +361,15 @@ if not 'year' in index_order_co2mwh:
 #%%
 
 # Optimal index all55%
-index_scenarios = dfs['df_chain'].query(f'year == "scenarios_sweep3_2030_f" | year == "scenarios_2030_f"').index
-optimal_index = dfs['df_secondary'].iloc[index_scenarios].query(f'54.99 < co2_reduction < 55.101').index
-optimal_index = dfs['df_chain'].iloc[optimal_index].c.drop_duplicates().index
-prefix = 'all55_'+prefix
+#index_scenarios = dfs['df_chain'].query(f'year == "scenarios_sweep3_2030_f" | year == "scenarios_2030_f"').index
+#optimal_index = dfs['df_secondary'].iloc[index_scenarios].query(f'54.99 < co2_reduction < 55.101').index
+#optimal_index = dfs['df_chain'].iloc[optimal_index].c.drop_duplicates().index
+#prefix = 'all55_'+prefix
 
 # Optimal index original 
-#optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
+optimal_index = dfs['df_chain'].query('year == "scenarios_2030_f"').index
 
-scheme_encoding = {'Grandfathering':1,'Sovereignty':2,'Efficiency':3,'Egalitarianism':4,'Ability to pay':5}
+scheme_encoding = {'Grandfathering':1,'Sovereignty':2,'Efficiency 55%':3,'Egalitarianism':4,'Ability to pay':5,'Efficiency 70%':6}
 ivd = {v: k for k, v in scheme_encoding.items()}
 
 scenarios = list(dfs['df_chain'].iloc[optimal_index].c.map(ivd).values)
@@ -659,14 +657,14 @@ plot_country_co2_vs_elec_price(['PL','NL','AT','FI','SE'])
 
 
 
-#%% 
+#%% Plot scenario realised emission vs assigned 
 
 scenarios_index = dfs['df_chain'].query('year == "scenarios_sweep3_2030_f" | year == "scenarios_2030_f"').index
 
 df = pd.DataFrame()
 
 #df['co2_emittted'] = dfs['df_co2'].iloc[scenarios_index].sum(axis=1)
-df['co2_emittted'] =dfs['df_secondary']['co2_emission'].iloc[scenarios_index]
+df['co2_emitted'] =dfs['df_secondary']['co2_emission'].iloc[scenarios_index]
 
 df['co2_assigned']  = (1-dfs['df_chain'].iloc[scenarios_index].s*1e-2)/(0.45)#*base_emis
 
@@ -675,23 +673,23 @@ df['co2_assigned']  = (1-dfs['df_chain'].iloc[scenarios_index].s*1e-2)*base_emis
 #df['scenario'] = dfs['df_chain'].query('year == "scenarios_sweep_2030_f"').c
 
 df['co2_assigned'] = df['co2_assigned']*1e-6
-df['co2_assigned'] = df['co2_assigned']*1e-6
+df['co2_emitted'] = df['co2_emitted']*1e-6
 
 scheme_encoding = {'Grandfathering':1,'Sovereignty':2,'Efficiency':3,'Egalitarianism':4,'Ability to pay':5}
 ivd = {v: k for k, v in scheme_encoding.items()}
 
 df['Scenario'] = [ivd[c] for c in  dfs['df_chain'].iloc[scenarios_index].c]
 
-sns.lineplot(data=df,y='co2_emittted',x='co2_assigned',hue='Scenario')
+sns.lineplot(data=df,y='co2_emitted',x='co2_assigned',hue='Scenario')
 #plt.vlines(base_emis*0.45,2e8,8e8)
 #plt.hlines(base_emis*0.45,0.5,2)
-plt.hlines(base_emis*0.45,0.3*1e9,1.4*1e9,colors='k')
+plt.hlines(base_emis*0.45*1e-6,0.3*1e3,1.4*1e3,colors='k')
 #plt.plot([0,1e9],[0,1e9])
 #plt.ylim(4e8,8e8)
-plt.xlim(3e8,14e8)
-plt.ylabel('Realized emissions\n[ton CO$_2$]')
-plt.xlabel('Assigned emissions\n[ton CO$_2$]')
-
+#plt.xlim(3e8,14e8)
+plt.ylabel('Realized emissions\n[M ton CO$_2$]')
+plt.xlabel('Assigned emissions\n[M ton CO$_2$]')
+plt.savefig(f'graphics/co2_realized_vs_assigned_{prefix}.jpeg',dpi=400,bbox_inches='tight')
 
 #%% Plot national co2 reduction vs co2 reduction cost
 
@@ -722,13 +720,6 @@ def plot_country_red_vs_co2_price(countries):
     plt.savefig(f'graphics/red_vs_co2_price_{countries}.jpeg',dpi=400,bbox_inches='tight')
 
 plot_country_red_vs_co2_price(['RO','GB','ES','DE','DK','PL'])
-
-#%%
-
-I = 96085 # CApital cost pr year
-
-
-I/(0.239623*8760)
 
 #%% Plot histogram of all co2 prices vs co2 reductions
 
