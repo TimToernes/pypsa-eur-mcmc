@@ -6,6 +6,7 @@ import pandas as pd
 from pathlib import Path
 
 
+
 def configure_logging(snakemake, skip_handlers=False):
     """
     Configure the basic behaviour for the logging module.
@@ -98,30 +99,30 @@ def load_network_for_plots(fn, tech_costs, config, combine_hydro_ps=True):
     import pypsa
     from add_electricity import update_transmission_costs, load_costs
 
-    n = pypsa.Network(fn)
+    network = pypsa.Network(fn)
 
-    n.loads["carrier"] = n.loads.bus.map(n.buses.carrier) + " load"
-    n.stores["carrier"] = n.stores.bus.map(n.buses.carrier)
+    network.loads["carrier"] = network.loads.bus.map(network.buses.carrier) + " load"
+    network.stores["carrier"] = network.stores.bus.map(network.buses.carrier)
 
-    n.links["carrier"] = (n.links.bus0.map(n.buses.carrier) + "-" + n.links.bus1.map(n.buses.carrier))
-    n.lines["carrier"] = "AC line"
-    n.transformers["carrier"] = "AC transformer"
+    network.links["carrier"] = (network.links.bus0.map(network.buses.carrier) + "-" + network.links.bus1.map(network.buses.carrier))
+    network.lines["carrier"] = "AC line"
+    network.transformers["carrier"] = "AC transformer"
 
-    n.lines['s_nom'] = n.lines['s_nom_min']
-    n.links['p_nom'] = n.links['p_nom_min']
+    network.lines['s_nom'] = network.lines['s_nom_min']
+    network.links['p_nom'] = network.links['p_nom_min']
 
     if combine_hydro_ps:
-        n.storage_units.loc[n.storage_units.carrier.isin({'PHS', 'hydro'}), 'carrier'] = 'hydro+PHS'
+        network.storage_units.loc[network.storage_units.carrier.isin({'PHS', 'hydro'}), 'carrier'] = 'hydro+PHS'
 
     # #if the carrier was not set on the heat storage units
     # bus_carrier = n.storage_units.bus.map(n.buses.carrier)
     # n.storage_units.loc[bus_carrier == "heat","carrier"] = "water tanks"
 
-    Nyears = n.snapshot_weightings.sum()/8760.
+    Nyears = network.snapshot_weightings.sum()/8760.
     costs = load_costs(Nyears, tech_costs, config['costs'], config['electricity'])
-    update_transmission_costs(n, costs)
+    update_transmission_costs(network, costs)
 
-    return n
+    return network
 
 def aggregate_p_nom(n):
     return pd.concat([
@@ -251,5 +252,146 @@ def mock_snakemake(rulename, **wildcards):
     for path in list(snakemake.log) + list(snakemake.output):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
-    os.chdir(script_dir)
+    #os.chdir(script_dir)
     return snakemake
+
+
+def make_override_component_attrs():
+    import pypsa
+    import numpy as np
+    override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
+    override_component_attrs["Link"].loc["bus2"] = ["string",np.nan,np.nan,"2nd bus","Input (optional)"]
+    override_component_attrs["Link"].loc["bus3"] = ["string",np.nan,np.nan,"3rd bus","Input (optional)"]
+    override_component_attrs["Link"].loc["bus4"] = ["string",np.nan,np.nan,"4th bus","Input (optional)"]
+    override_component_attrs["Link"].loc["efficiency2"] = ["static or series","per unit",1.,"2nd bus efficiency","Input (optional)"]
+    override_component_attrs["Link"].loc["efficiency3"] = ["static or series","per unit",1.,"3rd bus efficiency","Input (optional)"]
+    override_component_attrs["Link"].loc["efficiency4"] = ["static or series","per unit",1.,"4th bus efficiency","Input (optional)"]
+    override_component_attrs["Link"].loc["p2"] = ["series","MW",0.,"2nd bus output","Output"]
+    override_component_attrs["Link"].loc["p3"] = ["series","MW",0.,"3rd bus output","Output"]
+    override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output","Output"]
+    override_component_attrs["StorageUnit"].loc["p_dispatch"] = ["series","MW",0.,"Storage discharging.","Output"]
+    override_component_attrs["StorageUnit"].loc["p_store"] = ["series","MW",0.,"Storage charging.","Output"]
+    return override_component_attrs
+
+
+
+def get_tech_colors():
+    tech_colors = {
+        "onwind" : "b"                     ,
+        "onshore wind" : "b",
+        'offwind' : "c",
+        'offshore wind' : "c",
+        'offwind-ac' : "c",
+        'offshore wind (AC)' : "c",
+        'offwind-dc' : "#009999",
+        'offshore wind (DC)' : "#009999",
+        'wave' : "#004444",
+        "hydro" : "#3B5323",
+        "hydro reservoir" : "#3B5323",
+        "ror" : "#78AB46",
+        "run of river" : "#78AB46",
+        'hydroelectricity' : '#006400',
+        'solar' : "#e9f542",
+        'solar PV' : "#e9f542",
+        'solar thermal' : 'coral',
+        'solar rooftop' : '#e6b800',
+        "OCGT" : "wheat",
+        "OCGT marginal" : "sandybrown",
+        "OCGT-heat" : "orange",
+        "gas boiler" : "orange",
+        "gas boilers" : "orange",
+        "gas boiler marginal" : "orange",
+        "gas-to-power/heat" : "orange",
+        "gas" : "brown",
+        "natural gas" : "brown",
+        "SMR" : "#4F4F2F",
+        "oil" : "#B5A642",
+        "oil boiler" : "#B5A677",
+        "lines" : "k",
+        "transmission lines" : "k",
+        "H2" : "m",
+        "hydrogen storage" : "m",
+        "battery" : "slategray",
+        "battery storage" : "slategray",
+        "home battery" : "#614700",
+        "home battery storage" : "#614700",
+        "Nuclear" : "r",
+        "Nuclear marginal" : "r",
+        "nuclear" : "r",
+        "uranium" : "r",
+        "Coal" : "k",
+        "coal" : "k",
+        "Coal marginal" : "k",
+        "Lignite" : "grey",
+        "lignite" : "grey",
+        "Lignite marginal" : "grey",
+        "CCGT" : "orange",
+        "CCGT marginal" : "orange",
+        "heat pumps" : "#76EE00",
+        "heat pump" : "#76EE00",
+        "air heat pump" : "#76EE00",
+        "ground heat pump" : "#40AA00",
+        "power-to-heat" : "#40AA00",
+        "resistive heater" : "pink",
+        "Sabatier" : "#FF1493",
+        "methanation" : "#FF1493",
+        "power-to-gas" : "#FF1493",
+        "power-to-liquid" : "#FFAAE9",
+        "helmeth" : "#7D0552",
+        "helmeth" : "#7D0552",
+        "DAC" : "#E74C3C",
+        "co2 stored" : "#123456",
+        "CO2 sequestration" : "#123456",
+        "CC" : "k",
+        "co2" : "#123456",
+        "co2 vent" : "#654321",
+        "solid biomass for industry co2 from atmosphere" : "#654321",
+        "solid biomass for industry co2 to stored": "#654321",
+        "gas for industry co2 to atmosphere": "#654321",
+        "gas for industry co2 to stored": "#654321",
+        "Fischer-Tropsch" : "#44DD33",
+        "kerosene for aviation": "#44BB11",
+        "naphtha for industry" : "#44FF55",
+        "land transport oil" : "#44DD33",
+        "water tanks" : "#BBBBBB",
+        "hot water storage" : "#BBBBBB",
+        "hot water charging" : "#BBBBBB",
+        "hot water discharging" : "#999999",
+        "CHP" : "r",
+        "CHP heat" : "r",
+        "CHP electric" : "r",
+        "PHS" : "g",
+        "Ambient" : "k",
+        "Electric load" : "b",
+        "Heat load" : "r",
+        "heat" : "darkred",
+        "rural heat" : "#880000",
+        "central heat" : "#b22222",
+        "decentral heat" : "#800000",
+        "low-temperature heat for industry" : "#991111",
+        "process heat" : "#FF3333",
+        "heat demand" : "darkred",
+        "electric demand" : "k",
+        "Li ion" : "grey",
+        "district heating" : "#CC4E5C",
+        "retrofitting" : "purple",
+        "building retrofitting" : "purple",
+        "BEV charger" : "grey",
+        "V2G" : "grey",
+        "land transport EV" : "grey",
+        "electricity" : "k",
+        "gas for industry" : "#333333",
+        "solid biomass for industry" : "#555555",
+        "industry electricity" : "#222222",
+        "industry new electricity" : "#222222",
+        "process emissions to stored" : "#444444",
+        "process emissions to atmosphere" : "#888888",
+        "process emissions" : "#222222",
+        "oil emissions" : "#666666",
+        "land transport fuel cell" : "#AAAAAA",
+        "biogas" : "#800000",
+        "solid biomass" : "#DAA520",
+        "today" : "#D2691E",
+        "shipping" : "#6495ED",
+        "electricity distribution grid" : "#333333"}
+    return tech_colors

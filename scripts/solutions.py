@@ -2,6 +2,9 @@
 import pandas as pd
 import numpy as np
 from multiprocessing import Queue
+from _mcmc_helpers import str_to_theta
+import pickle
+from pypsa.linopt import get_dual
 
 #%% Solutions class
 class solutions:
@@ -11,58 +14,90 @@ class solutions:
     def __init__(self,network,manager=None):
         self.old_objective = network.objective
         self.sum_vars = self.calc_sum_vars(network)
+
         self.gen_p =    pd.DataFrame(data=[network.generators.p_nom_opt],index=[0])
         self.gen_E =    pd.DataFrame(data=[network.generators_t.p.sum()],index=[0])
-        self.store_p =  pd.DataFrame(data=[network.storage_units.p_nom_opt],index=[0])
-        self.store_E =  pd.DataFrame(data=[network.storage_units_t.p.sum()],index=[0])
-        self.links =    pd.DataFrame(data=[network.links.p_nom_opt],index=[0])
+
+        self.storeage_unit_p =  pd.DataFrame(data=[network.storage_units.p_nom_opt],index=[0])
+        self.storeage_unit_E =  pd.DataFrame(data=[network.storage_units_t.p.sum()],index=[0])
+
+        self.store_p = pd.DataFrame(data=[network.stores.e_nom_opt],index=[0])
+        self.store_E = pd.DataFrame(data=[network.stores_t.p.sum()],index=[0])
+
+        self.links_p =    pd.DataFrame(data=[network.links.p_nom_opt],index=[0])
+        self.links_E =  pd.DataFrame(data=[network.links_t.p0.sum()],index=[0])
+
+        self.lines_p =    pd.DataFrame(data=[network.lines.s_nom_opt],index=[0])
+        self.lines_E =    pd.DataFrame(data=[network.lines_t.p0.sum()],index=[0])
+
+        try : 
+            co2_emis = pd.Series(self.get_country_emis(network))
+            self.co2_pr_node = pd.DataFrame(columns=co2_emis.index,data=[co2_emis.values])
+        except : 
+            self.co2_pr_node = pd.DataFrame()
+
+        try : 
+            self.national_co2_dual = pd.DataFrame(data={get_dual(network,'national_co2',c).name :get_dual(network,'national_co2',c)[0] for c in network.dualvalues.loc['national_co2'].index},index=[0])
+        except : 
+            self.national_co2_dual = pd.DataFrame(data={country:network.global_constraints.loc['CO2Limit','mu'] for country in network.buses.country.unique()[:-1]})
+            #self.national_co2_dual = pd.DataFrame()
+
+        try : 
+            #mean_nodal_cost = get_dual(network,'Bus','marginal_price').mean()
+            weighted_mean_nodal_cost = (abs(network.buses_t.p)*network.buses_t.marginal_price).sum()/abs(network.buses_t.p).sum()
+            self.bus_nodal_price = pd.DataFrame(data=[weighted_mean_nodal_cost.values],columns=weighted_mean_nodal_cost.index)
+        except : 
+            self.bus_nodal_price = pd.DataFrame()
+
+        try : 
+            self.theta = pd.DataFrame([str_to_theta(network.theta)])
+        except : 
+            self.theta = pd.DataFrame()
+
+        nodal_costs = self.calc_nodal_costs(network)
+        self.nodal_costs = pd.DataFrame(columns=nodal_costs.index,data=[nodal_costs.values])
+
         self.secondary_metrics = self.calc_secondary_metrics(network)
         self.objective = pd.DataFrame()
+        try :
+            c = network.chain 
+            s = network.sample
+            a = network.accepted
+            self.df_chain = pd.DataFrame(data=dict(c=[c],s=[s],a=[a]))
+        except : 
+            c = 0
+            s = 0
+            a = 1
+            self.df_chain = pd.DataFrame(data=dict(c=[c],s=[s],a=[a]))
+
         if manager != None:
             self.queue = manager.Queue()
 
-        self.df_list = {'gen_p':self.gen_p,
-                        'gen_E':self.gen_E,
-                        'store_E':self.store_E,
-                        'store_p':self.store_p,
-                        'links':self.links,
-                        'sum_vars':self.sum_vars,
-                        'secondary_metrics':self.secondary_metrics}
+        self.df_list = ['gen_p', 
+                         'gen_E', 
+                         'storeage_unit_E', 
+                         'storeage_unit_p', 
+                         'store_E', 
+                         'store_p', 
+                         'links_p',
+                         'links_E', 
+                         'lines_p',
+                         'lines_E', 
+                         'co2_pr_node', 
+                         'sum_vars', 
+                         'secondary_metrics',
+                         'nodal_costs',
+                         'theta',
+                         'df_chain',
+                         'national_co2_dual',
+                         'bus_nodal_price']    
 
-        #try :
-        #    co2_emission = [constraint.body() for constraint in network.model.global_constraints.values()][0]
-        #except :
-        #    co2_emission = 0
-
-    def append(self,network):
-        # Append new data to all dataframes
-        self.sum_vars = self.sum_vars.append(self.calc_sum_vars(network),ignore_index=True)
-        self.gen_p =    self.gen_p.append([network.generators.p_nom_opt],ignore_index=True)
-        self.links =    self.gen_p.append([network.links.p_nom_opt],ignore_index=True)
-        self.gen_E =    self.gen_E.append([network.generators_t.p.sum()],ignore_index=True)
-        self.secondary_metrics = self.secondary_metrics.append(self.calc_secondary_metrics(network),ignore_index=True)
-
-    def calc_secondary_metrics(self,network):
-        # Calculate secondary metrics
-        gini = self.calc_gini(network)
-        co2_emission = self.calc_co2_emission(network)
-        system_cost = self.calc_system_cost(network)
-        autoarky = self.calc_autoarky(network)
-        return pd.DataFrame({'system_cost':system_cost,'co2_emission':co2_emission,'gini':gini,'autoarky':autoarky},index=[0])
-
-    def calc_sum_vars(self,network):
-        sum_data = dict(network.generators.p_nom_opt.groupby(network.generators.carrier).sum())
-        sum_data['transmission'] = network.links.p_nom_opt.sum()
-        sum_data['co2_emission'] = self.calc_co2_emission(network)
-        sum_data.update(network.storage_units.p_nom_opt.groupby(network.storage_units.carrier).sum())
-        sum_vars = pd.DataFrame(sum_data,index=[0])
-        return sum_vars
 
     def put(self,network):
     # add new data to the solutions queue. This is used when new data is added from
     # sub-process, when using multiprocessing
         try :
-            self.queue.qsize()
+            self.queue
         except:
             print('creating queue object')
             self.queue = Queue()
@@ -79,43 +114,63 @@ class solutions:
 
     def merge(self):
         # Merge all solutions put into the solutions queue into the solutions dataframes
-        merge_num = self.queue.qsize()
+        #merge_num = self.queue.qsize()
+        merge_num='!! not working !!'
         while not self.queue.empty() :
-            part_res = self.queue.get(60)
-            self.gen_E = self.gen_E.append(part_res.gen_E,ignore_index=True)
-            self.gen_p = self.gen_p.append(part_res.gen_p,ignore_index=True)
-            self.store_E = self.store_E.append(part_res.store_E,ignore_index=True)
-            self.store_p = self.store_p.append(part_res.store_p,ignore_index=True)
-            self.links = self.links.append(part_res.links,ignore_index=True)
-            self.sum_vars = self.sum_vars.append(part_res.sum_vars,ignore_index=True)
-            self.secondary_metrics = self.secondary_metrics.append(part_res.secondary_metrics,ignore_index=True)
-        print('merged {} solution'.format(merge_num))
+            part_res = self.queue.get(120)
 
-    def save_xlsx(self,file='save.xlsx'):
-        # Store all dataframes als excel file
-        self.df_list = {'gen_p':self.gen_p,
-                'gen_E':self.gen_E,
-                'store_E':self.store_E,
-                'store_p':self.store_p,
-                'links':self.links,
-                'sum_vars':self.sum_vars,
-                'secondary_metrics':self.secondary_metrics}
+            for df_name in self.df_list:
+                part_res_df = getattr(part_res,df_name)
 
-        writer = pd.ExcelWriter(file)
-        #sheet_names =  ['gen_p','gen_E','links','sum_var','secondary_metrics']
-        for i, df in enumerate(self.df_list):
-            self.df_list[df].to_excel(writer,df)
-        writer.save()
-        print('saved {}'.format(file))
+                if part_res_df.shape[0] == 0 : 
+                    # If the part res dataframe is 
+                    self.__dict__[df_name] = self.__dict__[df_name].append(pd.Series(),ignore_index=True)
+                else :
+                    self.__dict__[df_name] = self.__dict__[df_name].append(part_res_df,ignore_index=True)
+
+
+    def save_csv(self, file_prefix='sol'):
+        # Save a csv file for all dataframes in the df_list
+        for df_name in self.df_list:
+            self.__dict__[df_name].to_csv(file_prefix+df_name+".csv")
+
+
+    def calc_secondary_metrics(self,network):
+        # Calculate secondary metrics
+        gini = self.calc_gini(network)
+        gini_co2 = self.calc_co2_gini(network)
+        co2_emission = self.calc_co2_emission(network)
+        system_cost = self.calc_system_cost(network)
+        autoarky = self.calc_autoarky(network)
+        return pd.DataFrame({'system_cost':system_cost,'co2_emission':co2_emission,'gini':gini,'gini_co2':gini_co2,'autoarky':autoarky},index=[0])
+
+    def calc_sum_vars(self,network):
+        sum_data = dict(network.generators.p_nom_opt.groupby(network.generators.carrier).sum())
+        sum_data['transmission'] = network.links.p_nom_opt.sum()
+        sum_data['co2_emission'] = self.calc_co2_emission(network)
+        sum_data.update(network.storage_units.p_nom_opt.groupby(network.storage_units.carrier).sum())
+        sum_vars = pd.DataFrame(sum_data,index=[0])
+        return sum_vars
 
     def calc_gini(self,network):
     # This function calculates the gini coefficient of a given PyPSA network.
-        bus_total_prod = network.generators_t.p.sum().groupby(network.generators.bus).sum()
+
+        bus_total_prod = network.generators_t.p.sum().groupby(network.generators.location).sum()
+
+        ac_buses = network.buses.query('carrier == "AC"').index
+        generator_link_carriers = ['OCGT', 'CCGT', 'coal', 'lignite', 'nuclear', 'oil']
+        filt = network.links.bus1.isin(ac_buses) & network.links.carrier.isin(generator_link_carriers)
+
+        bus_total_prod += -network.links_t.p1.sum()[filt].groupby(network.links.location).sum()
+        bus_total_prod.pop('')
+
         load_total= network.loads_t.p_set.sum()
+        load_total = load_total.groupby(network.buses.country).sum()
+
 
         rel_demand = load_total/sum(load_total)
         rel_generation = bus_total_prod/sum(bus_total_prod)
-        
+
         # Rearange demand and generation to be of increasing magnitude
         idy = np.argsort(rel_generation/rel_demand)
         rel_demand = rel_demand[idy]
@@ -130,20 +185,31 @@ class solutions:
         lorenz_integral= 0
         for i in range(len(rel_demand)-1):
             lorenz_integral += (rel_demand[i+1]-rel_demand[i])*(rel_generation[i+1]-rel_generation[i])/2 + (rel_demand[i+1]-rel_demand[i])*rel_generation[i]
-        
+
         gini = 1- 2*lorenz_integral
+
         return gini
 
     def calc_autoarky(self,network):
         # calculates the autoarky of a model solution 
         # autoarky is calculated as the mean self sufficiency (energy produced/energy consumed) of all countries in all hours
-        mean_autoarky = []
-        for snap in network.snapshots:
-            hourly_load = network.loads_t.p_set.loc[snap]
-            hourly_autoarky = network.generators_t.p.loc[snap].groupby(network.generators.bus).sum()/hourly_load
-            hourly_autoarky_corected = hourly_autoarky.where(hourly_autoarky<1,1)
-            mean_autoarky.append(np.mean(hourly_autoarky_corected))
-        return np.mean(mean_autoarky)
+
+        bus_total_prod = network.generators_t.p.sum().groupby(network.generators.location).sum()
+
+        ac_buses = network.buses.query('carrier == "AC"').index
+        generator_link_carriers = ['OCGT', 'CCGT', 'coal', 'lignite', 'nuclear', 'oil']
+        filt = network.links.bus1.isin(ac_buses) & network.links.carrier.isin(generator_link_carriers)
+
+        bus_total_prod += -network.links_t.p1.sum()[filt].groupby(network.links.location).sum()
+        try:
+            bus_total_prod.pop('')
+        except : 
+            pass
+
+        bus_total_load = network.loads_t.p.groupby(network.buses.country,axis=1).sum().sum()
+
+        autoarky = (bus_total_prod/bus_total_load).mean()
+        return autoarky
 
     def calc_co2_emission(self,network):
             #CO2
@@ -166,7 +232,227 @@ class solutions:
 
     def calc_system_cost(self,network):
         #Cost
-        capital_cost = sum(network.generators.p_nom_opt*network.generators.capital_cost) + sum(network.links.p_nom_opt*network.links.capital_cost) + sum(network.storage_units.p_nom_opt * network.storage_units.capital_cost)
-        marginal_cost = network.generators_t.p.groupby(network.generators.carrier,axis=1).sum().sum() * network.generators.marginal_cost.groupby(network.generators.type).mean()
-        total_system_cost = marginal_cost.sum() + capital_cost
+        #capital_cost = sum(network.generators.p_nom_opt*network.generators.capital_cost) + sum(network.links.p_nom_opt*network.links.capital_cost) + sum(network.storage_units.p_nom_opt * network.storage_units.capital_cost)
+        #marginal_cost = network.generators_t.p.groupby(network.generators.carrier,axis=1).sum().sum() * network.generators.marginal_cost.groupby(network.generators.type).mean()
+        #total_system_cost = marginal_cost.sum() + capital_cost
+        total_system_cost = network.objective
         return total_system_cost
+
+
+    def get_country_emis(self,network):
+
+        query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
+        id_co2_links = network.links.query(query_string('co2 atmosphere')).index
+
+        country_codes = network.links.loc[id_co2_links].location.unique()
+        country_emis = {code:0 for code in country_codes}
+
+        for country in country_codes:
+            idx = network.links.query(f'location == "{country}"').index
+            id0 = (network.links.loc[idx] == 'co2 atmosphere')['bus0']
+            country_emis[country] -= network.links_t.p0[idx[id0]].sum(axis=1).mul(network.snapshot_weightings).sum()
+            id1 = (network.links.loc[idx] == 'co2 atmosphere')['bus1']
+            country_emis[country] -= network.links_t.p1[idx[id1]].sum(axis=1).mul(network.snapshot_weightings).sum()
+            id2 = (network.links.loc[idx] == 'co2 atmosphere')['bus2']
+            country_emis[country] -= network.links_t.p2[idx[id2]].sum(axis=1).mul(network.snapshot_weightings).sum()
+            id3 = (network.links.loc[idx] == 'co2 atmosphere')['bus3']
+            country_emis[country] -= network.links_t.p3[idx[id3]].sum(axis=1).mul(network.snapshot_weightings).sum()
+            id4 = (network.links.loc[idx] == 'co2 atmosphere')['bus4']
+            country_emis[country] -= network.links_t.p4[idx[id4]].sum(axis=1).mul(network.snapshot_weightings).sum()
+
+            if country == 'EU':
+                id_load_co2 = network.loads.query('bus == "co2 atmosphere"').index
+                co2_load = network.loads.p_set[id_load_co2].sum().sum()*sum(network.snapshot_weightings)
+                country_emis[country] -= co2_load
+
+            total_emis = np.sum(list(country_emis.values())) 
+        
+        return country_emis
+
+
+    def calc_co2_emis_pr_node(self,network):
+
+        co2_emis = {}
+        for bus in network.buses.index:
+            local_emis = 0 
+            for gen in network.generators.query("bus == '{}' ".format(bus)).index:
+
+                gen_emis = 1/network.generators.efficiency.loc[gen] 
+                gen_emis *= (network.snapshot_weightings*network.generators_t.p.T).T.sum().loc[gen]
+                try:
+                    gen_emis *= network.carriers.co2_emissions.loc[network.generators.carrier.loc[gen]]
+                except Exception:
+                    pass
+                local_emis += gen_emis
+            co2_emis[bus] = local_emis
+            co2_emis = pd.Series(co2_emis)
+        return co2_emis
+
+
+
+    def calc_co2_gini(self,network):
+
+        co2_emis = self.calc_co2_emis_pr_node(network)
+        co2_emis = np.array(self.co2_pr_node)[0]
+        #co2_emis = pd.Series(co2_emis)
+
+        #bus_total_prod = network.generators_t.p.sum().groupby(network.generators.bus).sum()
+        load_total= network.loads_t.p_set.sum()
+        load_total = load_total.groupby(network.buses.country).sum()
+        try : 
+            load_total.pop('')
+        except : 
+            pass 
+
+        rel_demand = load_total/sum(load_total)
+        rel_generation = co2_emis/sum(co2_emis)
+
+        # Rearange demand and generation to be of increasing magnitude
+        idy = np.argsort(rel_generation/rel_demand)
+        rel_demand = rel_demand[idy]
+        rel_generation = rel_generation[idy]
+
+        # Calculate cumulative sum and add [0,0 as point
+        rel_demand = np.cumsum(rel_demand)
+        rel_demand = np.concatenate([[0],rel_demand])
+        rel_generation = np.cumsum(rel_generation)
+        rel_generation = np.concatenate([[0],rel_generation])
+
+        lorenz_integral= 0
+        for i in range(len(rel_demand)-1):
+            lorenz_integral += (rel_demand[i+1]-rel_demand[i])*(rel_generation[i+1]-rel_generation[i])/2 + (rel_demand[i+1]-rel_demand[i])*rel_generation[i]
+
+        gini = 1- 2*lorenz_integral
+        return gini
+
+
+
+    def calc_nodal_costs(self,network):
+
+        def _calculate_nodal_costs(n,nodal_costs):
+            #Beware this also has extraneous locations for country (e.g. biomass) or continent-wide (e.g. fossil gas/oil) stuff
+            for c in n.iterate_components(n.branch_components|n.controllable_one_port_components^{"Load"}):
+                c.df["capital_costs"] = c.df.capital_cost*c.df[opt_name.get(c.name,"p") + "_nom_opt"]
+                capital_costs = c.df.groupby(["location","carrier"])["capital_costs"].sum()
+                index = pd.MultiIndex.from_tuples([(c.list_name,"capital") + t for t in capital_costs.index.to_list()])
+                nodal_costs = nodal_costs.reindex(index|nodal_costs.index)
+                nodal_costs.loc[index] = capital_costs.values
+
+                if c.name == "Link":
+                    p = c.pnl.p0.multiply(n.snapshot_weightings,axis=0).sum()
+                elif c.name == "Line":
+                    continue
+                elif c.name == "StorageUnit":
+                    p_all = c.pnl.p.multiply(n.snapshot_weightings,axis=0)
+                    p_all[p_all < 0.] = 0.
+                    p = p_all.sum()
+                else:
+                    p = c.pnl.p.multiply(n.snapshot_weightings,axis=0).sum()
+
+                #correct sequestration cost
+                if c.name == "Store":
+                    items = c.df.index[(c.df.carrier == "co2 stored") & (c.df.marginal_cost <= -100.)]
+                    c.df.loc[items,"marginal_cost"] = -20.
+
+                c.df["marginal_costs"] = p*c.df.marginal_cost
+                marginal_costs = c.df.groupby(["location","carrier"])["marginal_costs"].sum()
+                index = pd.MultiIndex.from_tuples([(c.list_name,"marginal") + t for t in marginal_costs.index.to_list()])
+                nodal_costs = nodal_costs.reindex(index|nodal_costs.index)
+                nodal_costs.loc[index] = marginal_costs.values
+
+            return nodal_costs
+
+
+        def assign_locations(n):
+            for c in n.iterate_components(n.one_port_components|n.branch_components):
+
+                ifind = pd.Series(c.df.index.str.find(" ",start=4),c.df.index)
+
+                for i in ifind.unique():
+                    names = ifind.index[ifind == i]
+
+                    if i == -1:
+                        c.df.loc[names,'location'] = ""
+                    else:
+                        c.df.loc[names,'location'] = names.str[:i]
+
+
+
+
+        opt_name = {"Store": "e", "Line" : "s", "Transformer" : "s"}
+        label = 'test'
+        nodal_costs = pd.Series()
+
+        assign_locations(network)
+        nodal_costs = _calculate_nodal_costs(network,nodal_costs)
+
+        return nodal_costs 
+
+
+# %%
+
+# testing of the class 
+
+if __name__ == '__main__':
+    import pypsa
+    override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
+    override_component_attrs["Link"].loc["bus2"] = ["string",np.nan,np.nan,"2nd bus","Input (optional)"]
+    override_component_attrs["Link"].loc["bus3"] = ["string",np.nan,np.nan,"3rd bus","Input (optional)"]
+    override_component_attrs["Link"].loc["bus4"] = ["string",np.nan,np.nan,"4th bus","Input (optional)"]
+    override_component_attrs["Link"].loc["efficiency2"] = ["static or series","per unit",1.,"2nd bus efficiency","Input (optional)"]
+    override_component_attrs["Link"].loc["efficiency3"] = ["static or series","per unit",1.,"3rd bus efficiency","Input (optional)"]
+    override_component_attrs["Link"].loc["efficiency4"] = ["static or series","per unit",1.,"4th bus efficiency","Input (optional)"]
+    override_component_attrs["Link"].loc["p2"] = ["series","MW",0.,"2nd bus output","Output"]
+    override_component_attrs["Link"].loc["p3"] = ["series","MW",0.,"3rd bus output","Output"]
+    override_component_attrs["Link"].loc["p4"] = ["series","MW",0.,"4th bus output","Output"]
+
+
+
+    def set_link_locataions(network):
+        network.links['location'] = ""
+        network.generators['location'] = ""
+        network.lines['location'] = ""
+        network.stores['location'] = ""
+        #network.storage_units['location']
+
+        query_string = lambda x : f'bus0 == "{x}" | bus1 == "{x}" | bus2 == "{x}" | bus3 == "{x}" | bus4 == "{x}"'
+        id_co2_links = network.links.query(query_string('co2 atmosphere')).index
+
+        country_codes = network.buses.country.unique()
+        country_codes = country_codes[:-1]
+
+        # Find all busses assosiated with the model countries 
+        country_buses = {code : [] for code in country_codes}
+        for country in country_codes:
+            country_nodes = list(network.buses.query('country == "{}"'.format(country)).index)
+            for bus in country_nodes:
+                country_buses[country].extend(list(network.buses.query('location == "{}"'.format(bus)).index))
+
+        # Set the location of all links connection to co2 atmosphere 
+        for country in country_buses:
+            for bus in country_buses[country]:
+                idx = network.links.query(query_string(bus))['location'].index
+                network.links.loc[idx,'location'] = country
+
+                idx = network.generators.query(f"bus == '{bus}'")['location'].index
+                network.generators.loc[idx,'location'] = country
+
+        # Links connecting to co2 atmosphere without known location are set to belong to EU
+        idx_homeless = network.links.query(query_string('co2 atmosphere')).query('location == ""').index
+        network.links.loc[idx_homeless,'location'] = 'EU'
+        return network
+
+
+    network = pypsa.Network('../inter_results/mcmc_test/network_c0_s1.nc',
+                            override_component_attrs=override_component_attrs)
+    network.duals , network.dualvalues = pickle.load( open('../'+network.dual_path, "rb" ) )
+
+
+    sol = solutions(network)
+
+    network = set_link_locataions(network)
+
+    sol.put(network)
+
+    sol.merge()
+# %%

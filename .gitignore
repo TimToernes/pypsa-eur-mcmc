@@ -1,6 +1,15 @@
 
 *.log
 .vscode/
-
+.snakemake/
+*.pptx
+*.nc
 # Ignore intermediate results 
-inter_results/*
+data/networks/
+inter_results/
+tmp/
+results/
+graphics/
+config.yaml
+.slurm-logs/
+*.pyc
