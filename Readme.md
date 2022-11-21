@@ -1,4 +1,4 @@
-## How much flexibility is available for a just energy transition in Europe?
+## 30.000 ways to reach 55% decarbonization of the European electricity sector
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
