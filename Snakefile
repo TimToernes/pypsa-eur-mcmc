@@ -70,7 +70,7 @@ rule data_postprocess:
     threads: 32
     resources: mem='400G', partition='q64,q36,q32'
     script:
-        'scripts/data_postprocessing.py'
+        'scripts/make_summary.py'
 
 rule speed_test:
     threads: 4

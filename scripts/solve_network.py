@@ -5,16 +5,11 @@ import logging
 logger = logging.getLogger(__name__)
 import gc
 import os
-
 import pypsa
-
 from pypsa.linopt import get_var, linexpr, define_constraints
-
 from pypsa.descriptors import free_output_series_dataframes
-
 # Suppress logging of the slack bus choices
 pypsa.pf.logger.setLevel(logging.WARNING)
-
 from vresutils.benchmark import memory_logger
 
 

@@ -14,7 +14,6 @@ import sys
 import builtins 
 import pypsa
 import os
-import csv
 from _helpers import configure_logging
 from _mcmc_helpers import *
 import numpy as np
@@ -146,23 +145,15 @@ if __name__ == '__main__':
     # Store parameters in the network object
     network.mga_slack = snakemake.config.get('mga_slack')
 
-    #mcmc_variables = calc_variables(network)
     mcmc_variables = network.buses.country.unique()
     mcmc_variables[np.where(mcmc_variables == '')] = 'EU'
     network.mcmc_variables = f"results/{snakemake.config['run_name']}/mcmc_variables.csv"
     write_csv(network.mcmc_variables,mcmc_variables)
 
-    #sigma = np.identity(len(mcmc_variables))*float(snakemake.config['sampler']['eps'])
     sigma = np.ones(len(mcmc_variables))*float(snakemake.config['sampler']['eps'])
     network.sigma = f"inter_results/{snakemake.config['run_name']}/sigma_s1.csv"
     np.savetxt(network.sigma,sigma)
     
-    #theta_base = calc_theta_base(network,co2_intensity=3)
-    #network.theta_base = "inter_results/theta_base.csv"
-    #np.savetxt(network.theta_base,theta_base)
-
-    #network = solve_network.prepare_network(network)
-
     allowable_emis = calc_150p_coal_emis(network,)
     allowable_emis['EU'] = np.inf
 

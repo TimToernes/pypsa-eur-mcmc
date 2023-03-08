@@ -283,7 +283,6 @@ def data_postprocess(dfs,networks,base_emis,co2_red=0.45,scenario_names='scenari
     generators, links, stores, storage_units = create_networks_dataframes(networks)
     update_secondary_data(dfs,network,base_emis,generators,links,scenario_names)
 
-
     create_tech_sum_df(dfs, networks,generators)
 
     create_country_pop_df(dfs,network)

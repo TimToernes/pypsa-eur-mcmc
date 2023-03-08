@@ -2,7 +2,9 @@
 *.log
 *.pyc
 *.pptx
+*.docx
 *.nc
+.*/
 
 .vscode/
 .DS_Store
@@ -17,5 +19,8 @@ tmp/
 graphics/
 paper/
 results/
+manuscript/
+log/
+shapefiles/
 
 # config.yaml
